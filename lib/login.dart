@@ -43,17 +43,23 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background Image
-          Image.asset(
-            'assets/bg_orange.png',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.orange.shade300,
-            ),
-          ),
-
+  fit: StackFit.expand,
+  children: [
+    // Background blur
+    ImageFiltered(
+      imageFilter: ImageFilter.blur(
+        sigmaX: 1.8,
+        sigmaY: 1.8,
+      ),
+      child: Image.asset(
+        'assets/bg_orange.png',
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Colors.orange.shade300,
+        ),
+      ),
+    ),
+                          
           // Content Layer
           SafeArea(
             child: SingleChildScrollView(
