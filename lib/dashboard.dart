@@ -34,7 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           // 1. Background Image
           Image.asset(
-            'assets/bg_orange.jpg',
+            'assets/bg_orange.png',
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Container(
               color: Colors.orange.shade400,
@@ -65,7 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/logo_kementan.png',
+                        'assets/logo_kementan.webp',
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             const Icon(Icons.eco, color: Colors.green, size: 30),
