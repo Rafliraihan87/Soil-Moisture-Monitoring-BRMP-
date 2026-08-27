@@ -30,16 +30,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. Background Image
-          Image.asset(
-            'assets/bg_orange.png',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.orange.shade400,
-            ),
-          ),
+  fit: StackFit.expand,
+  children: [
+    // Background blur
+    ImageFiltered(
+      imageFilter: ImageFilter.blur(
+        sigmaX: 1.8,
+        sigmaY: 8,
+      ),
+      child: Image.asset(
+        'assets/bg_orange.png',
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Colors.orange.shade300,
+        ),
+      ),
+    ),
 
           // 2. Main Content
           SafeArea(
