@@ -30,54 +30,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
-  fit: StackFit.expand,
-  children: [
-    // Background blur
-    ImageFiltered(
-      imageFilter: ImageFilter.blur(
-        sigmaX: 1.8,
-        sigmaY: 8,
-      ),
-      child: Image.asset(
-        'assets/bg_orange.png',
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: Colors.orange.shade300,
-        ),
-      ),
-    ),
+        fit: StackFit.expand,
+        children: [
+          // Background blur
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(
+              sigmaX: 1.8,
+              sigmaY: 1.8,
+            ),
+            child: Image.asset(
+              'assets/bg_orange.png',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.orange.shade300,
+              ),
+            ),
+          ),
 
           // 2. Main Content
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo Instansi di Kiri Atas
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.yellow.shade600,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+                  // Logo Instansi + Tombol Pengaturan
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Logo Instansi di Kiri Atas
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.yellow.shade600,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/logo_kementan.webp',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.eco, color: Colors.green, size: 30),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/logo_kementan.webp',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                              Icons.eco,
+                              color: Colors.green,
+                              size: 30,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+
+                      // Tombol Pengaturan di Kanan Atas
+                      _buildSettingsButton(),
+                    ],
                   ),
+
                   const SizedBox(height: 16),
 
                   // Hero Card: Status Kebun & Mini Chart
@@ -90,9 +108,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // Card 1: Power Pompa
                       Expanded(child: _buildPowerCard()),
                       const SizedBox(width: 8),
+
                       // Card 2: Kelembapan
                       Expanded(child: _buildHumidityCard()),
                       const SizedBox(width: 8),
+
                       // Card 3: Suhu
                       Expanded(child: _buildTemperatureCard()),
                     ],
@@ -105,6 +125,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // Card Baterai
                       Expanded(child: _buildBatteryCard()),
                       const SizedBox(width: 12),
+
                       // Card Koneksi
                       Expanded(child: _buildConnectionCard()),
                     ],
@@ -123,7 +144,194 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Widget: Glass Container Helper
+  // ============================================================
+  // TOMBOL PENGATURAN
+  // ============================================================
+
+  Widget _buildSettingsButton() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 12,
+          sigmaY: 12,
+        ),
+        child: Material(
+          color: Colors.white.withOpacity(0.55),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: _showSettingsDialog,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.7),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.settings_rounded,
+                color: Colors.black87,
+                size: 25,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // DIALOG PENGATURAN
+  // ============================================================
+
+  void _showSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white.withOpacity(0.95),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.settings_rounded,
+                color: Colors.black87,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Pengaturan',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ambang Kelembapan
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.water_drop_outlined,
+                  color: Colors.black87,
+                ),
+                title: const Text(
+                  'Ambang Kelembapan',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text('45%'),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                ),
+                onTap: () {
+                  // Pengaturan threshold nanti
+                },
+              ),
+
+              // Pengaturan Pompa
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.waterfall_chart_rounded,
+                  color: Colors.black87,
+                ),
+                title: const Text(
+                  'Pengaturan Pompa',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text('Manual'),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                ),
+                onTap: () {
+                  // Pengaturan pompa nanti
+                },
+              ),
+
+              // Koneksi MQTT
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.router_rounded,
+                  color: Colors.black87,
+                ),
+                title: const Text(
+                  'Koneksi MQTT',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text('Connected'),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                ),
+                onTap: () {
+                  // Pengaturan MQTT nanti
+                },
+              ),
+
+              // Node
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.developer_board_rounded,
+                  color: Colors.black87,
+                ),
+                title: const Text(
+                  'Node',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(selectedNode),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                ),
+                onTap: () {
+                  // Pengaturan Node nanti
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Tutup',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // GLASS CONTAINER
+  // ============================================================
+
   Widget _buildGlassContainer({
     required Widget child,
     double borderRadius = 20,
@@ -134,14 +342,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        filter: ImageFilter.blur(
+          sigmaX: 14,
+          sigmaY: 14,
+        ),
         child: Container(
           padding: padding ?? const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: customColor ?? Colors.white.withOpacity(0.55),
             borderRadius: BorderRadius.circular(borderRadius),
             border: customBorder ??
-                Border.all(color: Colors.white.withOpacity(0.65), width: 1.2),
+                Border.all(
+                  color: Colors.white.withOpacity(0.65),
+                  width: 1.2,
+                ),
           ),
           child: child,
         ),
@@ -152,7 +366,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // 1. Hero Card (Status Kebun & Sparkline Chart)
   Widget _buildHeroCard() {
     return _buildGlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -167,17 +384,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 2,
+            ),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.5),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text(
               'Tanah: 68% | Udara: 26.5°C',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
           ),
           const SizedBox(height: 8),
+
           // Area Grafik Sparkline CustomPainter
           SizedBox(
             height: 70,
@@ -186,17 +411,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               painter: SparklineChartPainter(),
             ),
           ),
+
           const SizedBox(height: 6),
+
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Tanah: 68% | Udara: 26.5°C',
-                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
               Text(
                 'Update: 1 Menit yang lalu',
-                style: TextStyle(fontSize: 9.5, color: Colors.black54),
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.black54,
+                ),
               ),
             ],
           )
@@ -245,19 +479,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Icon(
                   Icons.power_settings_new_rounded,
                   size: 28,
-                  color: isPowerOn ? const Color(0xFF00C828) : Colors.grey,
+                  color: isPowerOn
+                      ? const Color(0xFF00C828)
+                      : Colors.grey,
                 ),
               ),
               Text(
-                isPowerOn ? 'Pompa Aktif\n(MANUAL)' : 'Pompa Mati\n(MANUAL)',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 11,
+                isPowerOn ? 'Pompa Aktif' : 'Pompa Mati',
+                style: TextStyle(
+                  fontSize: 11.5,
                   fontWeight: FontWeight.bold,
-                  height: 1.15,
-                  color: Colors.black87,
+                  color: isPowerOn ? Colors.black87 : Colors.black54,
                 ),
-              ),
+              ),  
             ],
           ),
         ),
@@ -275,12 +509,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             const Text(
               'Kelembapan',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
             ),
             const Text(
               '68%',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Colors.black87,
+              ),
             ),
+
             // Progress Bar dengan Ikon Tetesan Air
             Container(
               height: 18,
@@ -304,20 +547,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     left: 4,
                     top: 2,
                     bottom: 2,
-                    child: Icon(Icons.water_drop, size: 12, color: Colors.white),
+                    child: Icon(
+                      Icons.water_drop,
+                      size: 12,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
             ),
+
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 3,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.55),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'Ambang <45%',
-                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
@@ -336,21 +591,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             const Text(
               'Suhu',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
             ),
             const Text(
               '26.5°C',
-              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+                color: Colors.black87,
+              ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 3,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.55),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'Tanah: 25.1°C',
-                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
             ),
             Row(
@@ -358,15 +628,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 const Text(
                   'Trend ',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black87, width: 1.2),
+                    border: Border.all(
+                      color: Colors.black87,
+                      width: 1.2,
+                    ),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Icon(Icons.show_chart, size: 13, color: Colors.black87),
+                  child: const Icon(
+                    Icons.show_chart,
+                    size: 13,
+                    color: Colors.black87,
+                  ),
                 )
               ],
             ),
@@ -379,20 +660,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // 5. Baterai Card
   Widget _buildBatteryCard() {
     return _buildGlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.symmetric(
+        vertical: 14,
+        horizontal: 12,
+      ),
       child: Column(
         children: [
           const Text(
             'Baterai',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.black87),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13.5,
+              color: Colors.black87,
+            ), 
           ),
           const SizedBox(height: 8),
+
           // Indikator Baterai Kustom
           Container(
             width: 75,
             height: 30,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.black87, width: 2.2),
+              border: Border.all(
+                color: Colors.black87,
+                width: 2.2,
+              ),
               borderRadius: BorderRadius.circular(7),
             ),
             child: Stack(
@@ -419,13 +711,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 6),
+
           const Text(
             '3.98V',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: Colors.black87,
+            ),
           ),
+
           const SizedBox(height: 8),
-          const Icon(Icons.solar_power_outlined, size: 36, color: Colors.black87),
+
+          const Icon(
+            Icons.solar_power_outlined,
+            size: 36,
+            color: Colors.black87,
+          ),
         ],
       ),
     );
@@ -434,14 +738,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // 6. Koneksi Card
   Widget _buildConnectionCard() {
     return _buildGlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.symmetric(
+        vertical: 14,
+        horizontal: 12,
+      ),
       child: Column(
         children: [
           const Text(
             'Koneksi',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.black87),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13.5,
+              color: Colors.black87,
+            ),
           ),
           const SizedBox(height: 8),
+
           // Sinyal Bar & Wifi Icon
           SizedBox(
             height: 48,
@@ -449,36 +761,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Icon(Icons.wifi, size: 24, color: Colors.black87),
+                const Icon(
+                  Icons.wifi,
+                  size: 24,
+                  color: Colors.black87,
+                ),
                 const SizedBox(width: 8),
-                _buildSignalBar(height: 8, color: const Color(0xFF00C828)),
+                _buildSignalBar(
+                  height: 8,
+                  color: const Color(0xFF00C828),
+                ),
                 const SizedBox(width: 3),
-                _buildSignalBar(height: 16, color: const Color(0xFF00C828)),
+                _buildSignalBar(
+                  height: 16,
+                  color: const Color(0xFF00C828),
+                ),
                 const SizedBox(width: 3),
-                _buildSignalBar(height: 24, color: const Color(0xFF00C828)),
+                _buildSignalBar(
+                  height: 24,
+                  color: const Color(0xFF00C828),
+                ),
                 const SizedBox(width: 3),
-                _buildSignalBar(height: 32, color: const Color(0xFF00C828)),
+                _buildSignalBar(
+                  height: 32,
+                  color: const Color(0xFF00C828),
+                ),
                 const SizedBox(width: 3),
-                _buildSignalBar(height: 40, color: Colors.grey.shade400),
+                _buildSignalBar(
+                  height: 40,
+                  color: Colors.grey.shade400,
+                ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
+
           const Text(
             'RSSI: -58dBm',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
+
           const SizedBox(height: 3),
+
           const Text(
             'MQTT: Connected',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSignalBar({required double height, required Color color}) {
+  Widget _buildSignalBar({
+    required double height,
+    required Color color,
+  }) {
     return Container(
       width: 5.5,
       height: height,
@@ -492,13 +838,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // 7. Node Selector Dropdown
   Widget _buildNodeSelector() {
     return _buildGlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 4,
+      ),
       borderRadius: 22,
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedNode,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black87, size: 26),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.black87,
+            size: 26,
+          ),
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -509,19 +862,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               setState(() => selectedNode = newValue);
             }
           },
-          items: nodeList.map<DropdownMenuItem<String>>((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text('Pilih Node: $value'),
-            );
-          }).toList(),
+          items: nodeList.map<DropdownMenuItem<String>>(
+            (String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text('Pilih Node: $value'),
+              );
+            },
+          ).toList(),
         ),
       ),
     );
   }
 }
 
+// ============================================================
 // Custom Painter untuk Grafik Garis Halus (Sparkline Chart)
+// ============================================================
+
 class SparklineChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -534,7 +892,14 @@ class SparklineChartPainter extends CustomPainter {
           const Color(0xFF00E639).withOpacity(0.35),
           const Color(0xFF00E639).withOpacity(0.0),
         ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      ).createShader(
+        Rect.fromLTWH(
+          0,
+          0,
+          size.width,
+          size.height,
+        ),
+      );
 
     final greenLinePaint = Paint()
       ..color = const Color(0xFF00C828)
@@ -552,16 +917,58 @@ class SparklineChartPainter extends CustomPainter {
     final orangePath = Path();
 
     // Titik kurva hijau (Kelembapan)
-    greenPath.moveTo(0, size.height * 0.7);
-    greenPath.quadraticBezierTo(size.width * 0.2, size.height * 0.9, size.width * 0.35, size.height * 0.3);
-    greenPath.quadraticBezierTo(size.width * 0.5, size.height * 0.45, size.width * 0.65, size.height * 0.15);
-    greenPath.quadraticBezierTo(size.width * 0.85, size.height * 0.5, size.width, size.height * 0.3);
+    greenPath.moveTo(
+      0,
+      size.height * 0.7,
+    );
+
+    greenPath.quadraticBezierTo(
+      size.width * 0.2,
+      size.height * 0.9,
+      size.width * 0.35,
+      size.height * 0.3,
+    );
+
+    greenPath.quadraticBezierTo(
+      size.width * 0.5,
+      size.height * 0.45,
+      size.width * 0.65,
+      size.height * 0.15,
+    );
+
+    greenPath.quadraticBezierTo(
+      size.width * 0.85,
+      size.height * 0.5,
+      size.width,
+      size.height * 0.3,
+    );
 
     // Titik kurva oranye (Suhu)
-    orangePath.moveTo(0, size.height * 0.6);
-    orangePath.quadraticBezierTo(size.width * 0.2, size.height * 0.4, size.width * 0.35, size.height * 0.45);
-    orangePath.quadraticBezierTo(size.width * 0.55, size.height * 0.4, size.width * 0.65, size.height * 0.15);
-    orangePath.quadraticBezierTo(size.width * 0.8, size.height * 0.45, size.width, size.height * 0.1);
+    orangePath.moveTo(
+      0,
+      size.height * 0.6,
+    );
+
+    orangePath.quadraticBezierTo(
+      size.width * 0.2,
+      size.height * 0.4,
+      size.width * 0.35,
+      size.height * 0.45,
+    );
+
+    orangePath.quadraticBezierTo(
+      size.width * 0.55,
+      size.height * 0.4,
+      size.width * 0.65,
+      size.height * 0.15,
+    );
+
+    orangePath.quadraticBezierTo(
+      size.width * 0.8,
+      size.height * 0.45,
+      size.width,
+      size.height * 0.1,
+    );
 
     // Fill Path untuk kurva hijau
     final fillPath = Path.from(greenPath)
@@ -569,22 +976,51 @@ class SparklineChartPainter extends CustomPainter {
       ..lineTo(0, size.height)
       ..close();
 
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(greenPath, greenLinePaint);
-    canvas.drawPath(orangePath, orangeLinePaint);
+    canvas.drawPath(
+      fillPath,
+      fillPaint,
+    );
+
+    canvas.drawPath(
+      greenPath,
+      greenLinePaint,
+    );
+
+    canvas.drawPath(
+      orangePath,
+      orangeLinePaint,
+    );
 
     // Titik puncak (Highlight Dot)
-    final dotPaint = Paint()..color = const Color(0xFFF28522);
+    final dotPaint = Paint()
+      ..color = const Color(0xFFF28522);
+
     final dotOuterPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
-    final centerPoint = Offset(size.width * 0.65, size.height * 0.15);
-    canvas.drawCircle(centerPoint, 4.5, dotPaint);
-    canvas.drawCircle(centerPoint, 4.5, dotOuterPaint);
+    final centerPoint = Offset(
+      size.width * 0.65,
+      size.height * 0.15,
+    );
+
+    canvas.drawCircle(
+      centerPoint,
+      4.5,
+      dotPaint,
+    );
+
+    canvas.drawCircle(
+      centerPoint,
+      4.5,
+      dotOuterPaint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(
+    covariant CustomPainter oldDelegate,
+  ) =>
+      false;
 }
