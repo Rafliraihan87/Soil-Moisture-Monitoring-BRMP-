@@ -99,7 +99,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 16),
 
                   // Hero Card: Status Kebun & Mini Chart
-                  _buildHeroCard(),
+                  GestureDetector(
+                    onTap: () => _showDetailModal(
+                      title: 'Status Keseluruhan Kebun',
+                      subtitle: 'Ringkasan performa $selectedNode',
+                      icon: Icons.analytics_outlined,
+                      accentColor: const Color(0xFF00C828),
+                      metrics: [
+                        {'label': 'Status Irigasi', 'val': 'Optimal (Tercukupi)'},
+                        {'label': 'Kesehatan Tanah', 'val': 'pH 6.4 (Netral)'},
+                        {'label': 'Penyiraman Terakhir', 'val': '08:30 WIB (Otomatis)'},
+                        {'label': 'Durasi Aktif Pompa', 'val': '18 Menit / Hari'},
+                      ],
+                      chartTitle: 'Tren 24 Jam Terakhir',
+                    ),
+                    child: _buildHeroCard(),
+                  ),
                   const SizedBox(height: 12),
 
                   // Baris 3 Kartu (Power, Kelembapan, Suhu)
@@ -110,11 +125,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 8),
 
                       // Card 2: Kelembapan
-                      Expanded(child: _buildHumidityCard()),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _showDetailModal(
+                            title: 'Statistik Kelembapan Tanah',
+                            subtitle: 'Sensor Capacitive Soil Moisture',
+                            icon: Icons.water_drop_outlined,
+                            accentColor: const Color(0xFF00C828),
+                            metrics: [
+                              {'label': 'Kelembapan Saat Ini', 'val': '68 %'},
+                              {'label': 'Ambang Batas Minimum', 'val': '< 45 % (Kering)'},
+                              {'label': 'Rata-rata 24 Jam', 'val': '64.2 %'},
+                              {'label': 'Status Tanah', 'val': 'Lembap Ideal'},
+                            ],
+                            chartTitle: 'Grafik Fluktuasi Kelembapan (%)',
+                          ),
+                          child: _buildHumidityCard(),
+                        ),
+                      ),
                       const SizedBox(width: 8),
 
                       // Card 3: Suhu
-                      Expanded(child: _buildTemperatureCard()),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _showDetailModal(
+                            title: 'Statistik Suhu Lingkungan',
+                            subtitle: 'Sensor Suhu Udara & Tanah',
+                            icon: Icons.thermostat_outlined,
+                            accentColor: const Color(0xFFF28522),
+                            metrics: [
+                              {'label': 'Suhu Udara', 'val': '26.5 °C'},
+                              {'label': 'Suhu Tanah', 'val': '25.1 °C'},
+                              {'label': 'Suhu Tertinggi Hari Ini', 'val': '31.4 °C (13:00)'},
+                              {'label': 'Suhu Terendah Hari Ini', 'val': '22.0 °C (04:30)'},
+                            ],
+                            chartTitle: 'Grafik Tren Suhu (°C)',
+                          ),
+                          child: _buildTemperatureCard(),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -123,7 +172,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     children: [
                       // Card Baterai
-                      Expanded(child: _buildBatteryCard()),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _showDetailModal(
+                            title: 'Manajemen Daya & Panel Surya',
+                            subtitle: 'Power Subsystem 18650 Li-ion',
+                            icon: Icons.battery_charging_full_rounded,
+                            accentColor: const Color(0xFF2563EB),
+                            metrics: [
+                              {'label': 'Kapasitas Baterai', 'val': '92 %'},
+                              {'label': 'Tegangan Saat Ini', 'val': '3.98 Volt'},
+                              {'label': 'Daya Masuk Panel Surya', 'val': '+4.8 Watt'},
+                              {'label': 'Estimasi Daya Habis', 'val': '~54 Jam (Tanpa Surya)'},
+                            ],
+                            chartTitle: 'Tegangan Baterai 24 Jam (Volt)',
+                          ),
+                          child: _buildBatteryCard(),
+                        ),
+                      ),
                       const SizedBox(width: 12),
 
                       // Card Koneksi
@@ -141,6 +207,204 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ============================================================
+  // MODAL POP-UP DETAIL STATISTIK
+  // ============================================================
+
+  void _showDetailModal({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color accentColor,
+    required List<Map<String, String>> metrics,
+    required String chartTitle,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.72,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.92),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(32),
+                topRight: Radius.circular(32),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 25,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Modal Handle Bar
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Modal Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(icon, color: accentColor, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Grafik Riwayat Mini
+                Text(
+                  chartTitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 90,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: CustomPaint(
+                    painter: SparklineChartPainter(),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Itemized Metrics List
+                const Text(
+                  'Data Telemetri Terbaru',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: metrics.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = metrics[index];
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item['label'] ?? '',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              item['val'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF0F172A),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // Tombol Tutup
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Tutup',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -441,119 +705,119 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // 2. Power / Pompa Card
   Widget _buildPowerCard() {
-  return GestureDetector(
-    onTap: () => setState(() => isPowerOn = !isPowerOn),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: 14,
-          sigmaY: 14,
-        ),
-        child: Container(
-          height: 179,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-
-            // Gradasi hijau dari tengah icon ke arah luar
-            gradient: isPowerOn
-                ? RadialGradient(
-                    center: const Alignment(0, 0.05),
-                    radius: 1.3,
-                    colors: [
-                      const Color(0xFF00E639).withOpacity(0.95),
-                      const Color(0xFF00E639).withOpacity(0.70),
-                      const Color(0xFF00E639).withOpacity(0.35),
-                      Colors.white.withOpacity(0.25),
-                    ],
-                    stops: const [
-                      0.0,
-                      0.25,
-                      0.55,
-                      1.0,
-                    ],
-                  )
-                : null,
-
-            // Warna ketika pompa OFF
-            color: isPowerOn
-                ? null
-                : Colors.grey.shade400.withOpacity(0.7),
-
-            border: Border.all(
-              color: Colors.white.withOpacity(0.65),
-              width: 1.2,
-            ),
+    return GestureDetector(
+      onTap: () => setState(() => isPowerOn = !isPowerOn),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: 14,
+            sigmaY: 14,
           ),
+          child: Container(
+            height: 179,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
 
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Judul
-                Text(
-                  'Power',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isPowerOn
-                        ? Colors.black87
-                        : Colors.black54,
-                  ),
-                ),
+              // Gradasi hijau dari tengah icon ke arah luar
+              gradient: isPowerOn
+                  ? RadialGradient(
+                      center: const Alignment(0, 0.05),
+                      radius: 1.3,
+                      colors: [
+                        const Color(0xFF00E639).withOpacity(0.95),
+                        const Color(0xFF00E639).withOpacity(0.70),
+                        const Color(0xFF00E639).withOpacity(0.35),
+                        Colors.white.withOpacity(0.25),
+                      ],
+                      stops: const [
+                        0.0,
+                        0.25,
+                        0.55,
+                        1.0,
+                      ],
+                    )
+                  : null,
 
-                // Icon Power
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.9),
+              // Warna ketika pompa OFF
+              color: isPowerOn
+                  ? null
+                  : Colors.grey.shade400.withOpacity(0.7),
 
-                    // Efek cahaya di sekitar icon
-                    boxShadow: isPowerOn
-                        ? [
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.75),
-                              blurRadius: 18,
-                              spreadRadius: 4,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: Icon(
-                    Icons.power_settings_new_rounded,
-                    size: 28,
-                    color: isPowerOn
-                        ? const Color(0xFF00C828)
-                        : Colors.grey,
-                  ),
-                ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.65),
+                width: 1.2,
+              ),
+            ),
 
-                // Status Pompa
-                Text(
-                  isPowerOn
-                      ? 'Pompa Aktif\n(MANUAL)'
-                      : 'Pompa Mati\n(MANUAL)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    height: 1.15,
-                    color: isPowerOn
-                        ? Colors.black87
-                        : Colors.black54,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Judul
+                  Text(
+                    'Power',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isPowerOn
+                          ? Colors.black87
+                          : Colors.black54,
+                    ),
                   ),
-                ),
-              ],
+
+                  // Icon Power
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.9),
+
+                      // Efek cahaya di sekitar icon
+                      boxShadow: isPowerOn
+                          ? [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.75),
+                                blurRadius: 18,
+                                spreadRadius: 4,
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Icon(
+                      Icons.power_settings_new_rounded,
+                      size: 28,
+                      color: isPowerOn
+                          ? const Color(0xFF00C828)
+                          : Colors.grey,
+                    ),
+                  ),
+
+                  // Status Pompa
+                  Text(
+                    isPowerOn
+                        ? 'Pompa Aktif\n(MANUAL)'
+                        : 'Pompa Mati\n(MANUAL)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      height: 1.15,
+                      color: isPowerOn
+                          ? Colors.black87
+                          : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // 3. Kelembapan Card
   Widget _buildHumidityCard() {
@@ -728,7 +992,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               fontWeight: FontWeight.bold,
               fontSize: 13.5,
               color: Colors.black87,
-            ), 
+            ),
           ),
           const SizedBox(height: 8),
 
@@ -939,7 +1203,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class SparklineChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // Fill background chart area
     final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,

@@ -3,21 +3,10 @@ import 'package:flutter/material.dart';
 import 'dashboard.dart';
 
 void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Auth Screen',
-      theme: ThemeData(fontFamily: 'sans-serif'),
-      home: const AuthScreen(),
-    );
-  }
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: AuthScreen(),
+  ));
 }
 
 class AuthScreen extends StatefulWidget {
@@ -28,293 +17,298 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  bool isLogin = true;
   bool isPasswordVisible = false;
-  bool isConfirmPasswordVisible = false;
-
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
 
-  final Color primaryOrange = const Color(0xFFF28522);
-  final Color inputBgColor = const Color(0xFFFDF0E2);
+  final Color primaryTextColor = const Color(0xFF1E293B);
+  final Color secondaryTextColor = const Color(0xFF64748B);
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
-      body: Stack(
-  fit: StackFit.expand,
-  children: [
-    // Background blur
-    ImageFiltered(
-      imageFilter: ImageFilter.blur(
-        sigmaX: 1.8,
-        sigmaY: 1.8,
-      ),
-      child: Image.asset(
-        'assets/bg_orange.png',
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: Colors.orange.shade300,
-        ),
-      ),
-    ),
-                          
-          // Content Layer
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  // Header Logo & Text
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 55,
-                        height: 55,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.yellow,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/logo_kementan.webp',
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.eco, color: Colors.green, size: 35),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'BALAI PERAKITAN DAN\nPENGUJIAN TANAMAN JERUK\nDAN BUAH SUBTROPIKA\nBADAN PERAKITAN DAN\nMODERNISASI PERTANIAN',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black87,
-                            letterSpacing: 0.3,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                    ],
+      body: SizedBox(
+        width: screenWidth,
+        height: screenHeight,
+        child: Stack(
+          children: [
+            // 1. Background Jeruk (Full Screen)
+            Positioned.fill(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
+                child: Image.asset(
+                  'assets/bg_orange.png',
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: const Color(0xFFEAB308),
                   ),
-                  const SizedBox(height: 40),
+                ),
+              ),
+            ),
 
-                  // Glassmorphism Card
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.5),
-                            width: 1.2,
+            // 2. Curved Sheet / Form Panel
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity, // Memastikan lebar penuh layar HP
+                height: screenHeight * 0.72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.68),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(42),
+                    topRight: Radius.circular(42),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(42),
+                    topRight: Radius.circular(42),
+                  ),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Title & Subtitle
+                          Text(
+                            'Welcome Back!',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: primaryTextColor,
+                              letterSpacing: 0.2,
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Title
-                            Text(
-                              isLogin ? 'Masuk' : 'Daftar',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                          const SizedBox(height: 4),
+                          Text(
+                            'We missed you',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: secondaryTextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+
+                          // Username Field
+                          _buildInputField(
+                            label: 'Username',
+                            controller: usernameController,
+                            hint: 'Username',
+                            prefixIcon: Icons.person_outline_rounded,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Password Field
+                          _buildInputField(
+                            label: 'Password',
+                            controller: passwordController,
+                            hint: '••••••••',
+                            prefixIcon: Icons.key_outlined,
+                            isPassword: true,
+                            isVisible: isPasswordVisible,
+                            onToggleVisibility: () {
+                              setState(() {
+                                isPasswordVisible = !isPasswordVisible;
+                              });
+                            },
+                          ),
+
+                          // Forgot Password Link
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {},
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Forgot Password?',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: secondaryTextColor,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 24),
+                          ),
+                          const SizedBox(height: 18),
 
-                            // Email Field
-                            _buildCustomTextField(
-                              hint: 'E-mail',
-                              controller: emailController,
-                              icon: Icons.mail_outline_rounded,
+                          // Gradient Sign In Button
+                          Container(
+                            width: double.infinity,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF4A72EC), Color(0xFF38BDF8)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF4A72EC).withOpacity(0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 14),
-
-                            // Password Field
-                            _buildCustomTextField(
-                              hint: 'Password',
-                              controller: passwordController,
-                              isPassword: true,
-                              isVisible: isPasswordVisible,
-                              onToggleVisibility: () {
-                                setState(() {
-                                  isPasswordVisible = !isPasswordVisible;
-                                });
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const DashboardScreen(),
+                                  ),
+                                );
                               },
-                              icon: isPasswordVisible
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                            ),
-
-                            // Confirm Password Field (Only on Register)
-                            if (!isLogin) ...[
-                              const SizedBox(height: 14),
-                              _buildCustomTextField(
-                                hint: 'Konfirmasi Password',
-                                controller: confirmPasswordController,
-                                isPassword: true,
-                                isVisible: isConfirmPasswordVisible,
-                                onToggleVisibility: () {
-                                  setState(() {
-                                    isConfirmPasswordVisible = !isConfirmPasswordVisible;
-                                  });
-                                },
-                                icon: isConfirmPasswordVisible
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
                               ),
+                              child: const Text(
+                                'Sign in',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+
+                          // Divider Pemisah
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: secondaryTextColor.withOpacity(0.25))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Text(
+                                  'Official App',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: secondaryTextColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Expanded(child: Divider(color: secondaryTextColor.withOpacity(0.25))),
                             ],
+                          ),
+                          const SizedBox(height: 14),
 
-                            const SizedBox(height: 20),
-
-                            // Submit Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 45,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  // Navigasi ke halaman Dashboard
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const DashboardScreen(),
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryOrange,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                ),
-                                child: Text(
-                                  isLogin ? 'Login' : 'Daftar',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                          // Logo Instansi
+                          Center(
+                            child: Image.asset(
+                              'assets/logo_kementan.webp',
+                              height: 65,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                Icons.agriculture_rounded,
+                                color: Colors.green,
+                                size: 45,
                               ),
                             ),
-                            const SizedBox(height: 16),
-
-                            // Bottom Navigation Links
-                            if (isLogin)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  GestureDetector(
-                                    onTap: () => setState(() => isLogin = false),
-                                    child: const Text(
-                                      'Daftar',
-                                      style: TextStyle(
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      // Action Lupa Password
-                                    },
-                                    child: Text(
-                                      'Lupa password?',
-                                      style: TextStyle(
-                                        color: primaryOrange,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    'Sudah punya akun? ',
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () => setState(() => isLogin = true),
-                                    child: Text(
-                                      'Login',
-                                      style: TextStyle(
-                                        color: primaryOrange,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCustomTextField({
-    required String hint,
+  // Helper: Input Field
+  Widget _buildInputField({
+    required String label,
     required TextEditingController controller,
-    required IconData icon,
+    required String hint,
+    required IconData prefixIcon,
     bool isPassword = false,
     bool isVisible = false,
     VoidCallback? onToggleVisibility,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: inputBgColor.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(25),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: isPassword ? !isVisible : false,
-        style: const TextStyle(color: Colors.black87, fontSize: 14),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: primaryOrange.withOpacity(0.7),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: secondaryTextColor,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          border: InputBorder.none,
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(icon, color: primaryOrange, size: 20),
-                  onPressed: onToggleVisibility,
-                )
-              : Icon(icon, color: primaryOrange, size: 20),
         ),
-      ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: isPassword ? !isVisible : false,
+            style: TextStyle(color: primaryTextColor, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: secondaryTextColor.withOpacity(0.5),
+                fontSize: 13.5,
+              ),
+              prefixIcon: Icon(
+                prefixIcon,
+                color: const Color(0xFF64748B),
+                size: 20,
+              ),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        isVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: const Color(0xFF94A3B8),
+                        size: 20,
+                      ),
+                      onPressed: onToggleVisibility,
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
