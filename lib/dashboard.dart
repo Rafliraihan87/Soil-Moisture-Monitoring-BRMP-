@@ -441,63 +441,119 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // 2. Power / Pompa Card
   Widget _buildPowerCard() {
-    return GestureDetector(
-      onTap: () => setState(() => isPowerOn = !isPowerOn),
-      child: _buildGlassContainer(
-        customColor: isPowerOn
-            ? const Color(0xFF00E639).withOpacity(0.85)
-            : Colors.grey.shade400.withOpacity(0.7),
-        child: SizedBox(
-          height: 155,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Power',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: isPowerOn ? Colors.black87 : Colors.black54,
+  return GestureDetector(
+    onTap: () => setState(() => isPowerOn = !isPowerOn),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 14,
+          sigmaY: 14,
+        ),
+        child: Container(
+          height: 179,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+
+            // Gradasi hijau dari tengah icon ke arah luar
+            gradient: isPowerOn
+                ? RadialGradient(
+                    center: const Alignment(0, 0.05),
+                    radius: 1.3,
+                    colors: [
+                      const Color(0xFF00E639).withOpacity(0.95),
+                      const Color(0xFF00E639).withOpacity(0.70),
+                      const Color(0xFF00E639).withOpacity(0.35),
+                      Colors.white.withOpacity(0.25),
+                    ],
+                    stops: const [
+                      0.0,
+                      0.25,
+                      0.55,
+                      1.0,
+                    ],
+                  )
+                : null,
+
+            // Warna ketika pompa OFF
+            color: isPowerOn
+                ? null
+                : Colors.grey.shade400.withOpacity(0.7),
+
+            border: Border.all(
+              color: Colors.white.withOpacity(0.65),
+              width: 1.2,
+            ),
+          ),
+
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Judul
+                Text(
+                  'Power',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isPowerOn
+                        ? Colors.black87
+                        : Colors.black54,
+                  ),
                 ),
-              ),
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.9),
-                  boxShadow: isPowerOn
-                      ? [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.6),
-                            blurRadius: 12,
-                            spreadRadius: 3,
-                          )
-                        ]
-                      : [],
+
+                // Icon Power
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.9),
+
+                    // Efek cahaya di sekitar icon
+                    boxShadow: isPowerOn
+                        ? [
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.75),
+                              blurRadius: 18,
+                              spreadRadius: 4,
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Icon(
+                    Icons.power_settings_new_rounded,
+                    size: 28,
+                    color: isPowerOn
+                        ? const Color(0xFF00C828)
+                        : Colors.grey,
+                  ),
                 ),
-                child: Icon(
-                  Icons.power_settings_new_rounded,
-                  size: 28,
-                  color: isPowerOn
-                      ? const Color(0xFF00C828)
-                      : Colors.grey,
+
+                // Status Pompa
+                Text(
+                  isPowerOn
+                      ? 'Pompa Aktif\n(MANUAL)'
+                      : 'Pompa Mati\n(MANUAL)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    height: 1.15,
+                    color: isPowerOn
+                        ? Colors.black87
+                        : Colors.black54,
+                  ),
                 ),
-              ),
-              Text(
-                isPowerOn ? 'Pompa Aktif' : 'Pompa Mati',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: isPowerOn ? Colors.black87 : Colors.black54,
-                ),
-              ),  
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // 3. Kelembapan Card
   Widget _buildHumidityCard() {
