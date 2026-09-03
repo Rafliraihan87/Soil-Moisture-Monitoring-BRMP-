@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class SoilRecord {
   final int testNumber;
@@ -20,9 +22,14 @@ class SoilRecord {
 
 class SoilPlot {
   String name;
+  String? imagePath; // Menyimpan path file dari kamera/galeri
   final List<SoilRecord> records;
 
-  SoilPlot({required this.name, required this.records});
+  SoilPlot({
+    required this.name,
+    this.imagePath,
+    required this.records,
+  });
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -33,6 +40,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final ImagePicker _picker = ImagePicker();
   Timer? _pollingTimer;
   Timer? _countdownTimer;
 
@@ -47,7 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Alur Sampling & Pengukuran
   List<SoilPlot> plots = [
-    SoilPlot(name: 'Tanah 1', records: []),
+    SoilPlot(name: 'Tanah 1', imagePath: null, records: []),
   ];
   int selectedPlotIndex = 0;
   bool isMeasuring = false;
@@ -99,12 +107,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             batteryVolt = b;
           });
 
-          // Jika sedang dalam sesi pengukuran
           if (isMeasuring) {
             sessionMoisture.add(m);
             sessionTemp.add(t);
 
-            // Deteksi sensor dicabut (kelembapan anjlok ke 0%)
             if (m <= 2 && !isProbeAlertShown && sessionMoisture.length > 3) {
               _handleSensorDetached();
             }
@@ -126,7 +132,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Pop-up Pilih Durasi Menit Pengukuran
+  // Modal Durasi Pengukuran
   void _showDurationPickerModal() {
     int selectedMinutes = 2;
 
@@ -161,15 +167,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 18),
                     Text(
                       'Pilih Durasi Pengukuran',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTextColor),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Durasi untuk plot: ${plots[selectedPlotIndex].name}',
+                      'Plot sasaran: ${plots[selectedPlotIndex].name}',
                       style: TextStyle(fontSize: 12.5, color: secondaryTextColor),
                     ),
                     const SizedBox(height: 20),
@@ -181,10 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           label: Text('$mins Menit'),
                           selected: isSel,
                           selectedColor: const Color(0xFF4A72EC),
-                          labelStyle: TextStyle(
-                            color: isSel ? Colors.white : primaryTextColor,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          labelStyle: TextStyle(color: isSel ? Colors.white : primaryTextColor, fontWeight: FontWeight.bold),
                           onSelected: (val) {
                             if (val) setModalState(() => selectedMinutes = mins);
                           },
@@ -202,18 +201,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4A72EC),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                         ),
-                        child: const Text(
-                          'Mulai Sekarang',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                        child: const Text('Mulai Sekarang', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                   ],
@@ -226,7 +216,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Mulai Hitung Mundur Sesi Pengukuran
   void _startMeasuringSession(int seconds) {
     setState(() {
       isMeasuring = true;
@@ -247,7 +236,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  // Selesai & Simpan Data Pengukuran
   void _finishAndSaveSession() {
     _countdownTimer?.cancel();
     setState(() => isMeasuring = false);
@@ -278,7 +266,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Deteksi Sensor Dicabut
   void _handleSensorDetached() {
     isProbeAlertShown = true;
     _countdownTimer?.cancel();
@@ -331,9 +318,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Dialog Pemilih Sumber Gambar (Kamera atau Galeri)
+  Future<String?> _pickImageSource() async {
+    ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 16),
+              const Text('Lampirkan Foto Tumbuhan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFE0E7FF), child: Icon(Icons.camera_alt_rounded, color: Color(0xFF4A72EC))),
+                title: const Text('Ambil Foto (Kamera)', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFE0E7FF), child: Icon(Icons.photo_library_rounded, color: Color(0xFF4A72EC))),
+                title: const Text('Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source != null) {
+      final XFile? image = await _picker.pickImage(source: source, imageQuality: 70);
+      if (image != null) return image.path;
+    }
+    return null;
+  }
+
   // Bottom Sheet untuk Memilih / Menambah Tanah Baru
   void _showPlotManagerSheet() {
     final TextEditingController newPlotCtrl = TextEditingController();
+    String? pickedImagePath;
 
     showModalBottomSheet(
       context: context,
@@ -345,42 +376,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
-                height: MediaQuery.of(context).size.height * 0.65,
+                height: MediaQuery.of(context).size.height * 0.72,
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(32),
-                    topRight: Radius.circular(32),
-                  ),
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
+                    Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)))),
                     const SizedBox(height: 16),
-                    Text(
-                      'Pilih atau Buat Tanah',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
-                    ),
+                    Text('Pilih atau Buat Tanah', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTextColor)),
                     const SizedBox(height: 12),
                     Expanded(
                       child: ListView.separated(
                         itemCount: plots.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 6),
+                        separatorBuilder: (context, index) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final p = plots[index];
                           final isCurrent = selectedPlotIndex == index;
@@ -388,22 +400,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             tileColor: isCurrent ? const Color(0xFF4A72EC).withOpacity(0.08) : Colors.grey.shade50,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
-                              side: BorderSide(
-                                color: isCurrent ? const Color(0xFF4A72EC) : Colors.transparent,
-                                width: 1.2,
+                              side: BorderSide(color: isCurrent ? const Color(0xFF4A72EC) : Colors.transparent, width: 1.2),
+                            ),
+                            leading: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: const Color(0xFF4A72EC).withOpacity(0.1),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: p.imagePath != null
+                                    ? (p.imagePath!.startsWith('assets/')
+                                        ? Image.asset(p.imagePath!, fit: BoxFit.cover)
+                                        : Image.file(File(p.imagePath!), fit: BoxFit.cover))
+                                    : const Icon(Icons.eco_rounded, color: Color(0xFF4A72EC)),
                               ),
                             ),
-                            leading: Icon(
-                              Icons.grass_rounded,
-                              color: isCurrent ? const Color(0xFF4A72EC) : secondaryTextColor,
-                            ),
-                            title: Text(
-                              p.name,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isCurrent ? const Color(0xFF4A72EC) : primaryTextColor,
-                              ),
-                            ),
+                            title: Text(p.name, style: TextStyle(fontWeight: FontWeight.bold, color: isCurrent ? const Color(0xFF4A72EC) : primaryTextColor)),
                             subtitle: Text('${p.records.length} data tersimpan'),
                             trailing: isCurrent ? const Icon(Icons.check_circle_rounded, color: Color(0xFF4A72EC)) : null,
                             onTap: () {
@@ -414,27 +429,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+
+                    // Preview Foto yang Terpilih
+                    if (pickedImagePath != null) ...[
+                      Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(File(pickedImagePath!), width: 36, height: 36, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('Foto tumbuhan terlampir', style: TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18, color: Colors.redAccent),
+                            onPressed: () => setSheetState(() => pickedImagePath = null),
+                          )
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Form Tambah Tanah Baru dengan Kamera & Galeri
                     Row(
                       children: [
                         Expanded(
                           child: TextField(
                             controller: newPlotCtrl,
                             decoration: InputDecoration(
-                              hintText: 'Nama tanah baru (mis: Tanah ${plots.length + 1})',
+                              hintText: 'Nama tanah (mis: Tanah ${plots.length + 1})',
                               hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
+
+                        // Tombol Kamera/Galeri
+                        IconButton.filledTonal(
+                          onPressed: () async {
+                            final path = await _pickImageSource();
+                            if (path != null) {
+                              setSheetState(() => pickedImagePath = path);
+                            }
+                          },
+                          icon: Icon(
+                            pickedImagePath != null ? Icons.photo_camera_back_rounded : Icons.add_a_photo_outlined,
+                            color: const Color(0xFF4A72EC),
+                          ),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF4A72EC).withOpacity(0.12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.all(12),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
                         ElevatedButton(
                           onPressed: () {
                             final text = newPlotCtrl.text.trim();
                             if (text.isNotEmpty) {
                               setState(() {
-                                plots.add(SoilPlot(name: text, records: []));
+                                plots.add(SoilPlot(
+                                  name: text,
+                                  imagePath: pickedImagePath,
+                                  records: [],
+                                ));
                                 selectedPlotIndex = plots.length - 1;
                               });
                               Navigator.pop(context);
@@ -443,7 +506,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0F172A),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
                           child: const Text('Tambah', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
@@ -464,6 +527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final currentPlot = plots[selectedPlotIndex];
+    final bool hasImage = currentPlot.imagePath != null;
 
     return Scaffold(
       body: SizedBox(
@@ -471,7 +535,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         height: screenHeight,
         child: Stack(
           children: [
-            // 1. Background Jeruk (Full Screen)
+            // Background Jeruk
             Positioned.fill(
               child: ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
@@ -480,14 +544,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: double.infinity,
                   height: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: const Color(0xFFEAB308),
-                  ),
+                  errorBuilder: (context, error, stackTrace) => Container(color: const Color(0xFFEAB308)),
                 ),
               ),
             ),
 
-            // 2. Header Atas
+            // Header Atas
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
@@ -521,11 +583,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(width: 6),
                             Text(
                               isConnectedToESP ? 'WiFi Terhubung' : 'WiFi Belum Terhubung',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white),
                             ),
                           ],
                         ),
@@ -550,7 +608,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // 3. Curved Bottom Sheet
+            // Curved Bottom Sheet
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
@@ -558,19 +616,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 height: screenHeight * 0.78,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.72),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(42),
-                    topRight: Radius.circular(42),
-                  ),
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(42), topRight: Radius.circular(42)),
                   boxShadow: [
                     BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -6)),
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(42),
-                    topRight: Radius.circular(42),
-                  ),
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(42), topRight: Radius.circular(42)),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                     child: SingleChildScrollView(
@@ -578,7 +630,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Banner Peringatan jika belum terhubung
                           if (!isConnectedToESP) ...[
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -595,11 +646,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Expanded(
                                     child: Text(
                                       'Pastikan HP tersambung ke WiFi "CitriSoil_ESP32" untuk membaca data tanah.',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.amber.shade900,
-                                      ),
+                                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
                                     ),
                                   ),
                                 ],
@@ -607,45 +654,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ],
 
-                          // Bar Pilihan Tanah
+                          // BAR TARGET TANAH (Background Foto Kamera/Galeri)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            height: 60,
                             margin: const EdgeInsets.only(bottom: 14),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(20),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6),
+                                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
                               ],
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.grass_rounded, color: Color(0xFF4A72EC), size: 20),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Target: ${currentPlot.name}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: primaryTextColor,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Stack(
+                                children: [
+                                  if (hasImage) ...[
+                                    Positioned.fill(
+                                      child: currentPlot.imagePath!.startsWith('assets/')
+                                          ? Image.asset(currentPlot.imagePath!, fit: BoxFit.cover)
+                                          : Image.file(File(currentPlot.imagePath!), fit: BoxFit.cover),
+                                    ),
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [Colors.black.withOpacity(0.70), Colors.black.withOpacity(0.35)],
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
-                                ),
-                                TextButton.icon(
-                                  onPressed: _showPlotManagerSheet,
-                                  icon: const Icon(Icons.add_location_alt_rounded, size: 16, color: Color(0xFF4A72EC)),
-                                  label: const Text('Ganti / Tambah', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4A72EC))),
-                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
-                                ),
-                              ],
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.eco_rounded,
+                                              color: hasImage ? Colors.white : const Color(0xFF4A72EC),
+                                              size: 22,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              'Target: ${currentPlot.name}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: hasImage ? Colors.white : primaryTextColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        TextButton.icon(
+                                          onPressed: _showPlotManagerSheet,
+                                          icon: Icon(
+                                            Icons.add_location_alt_rounded,
+                                            size: 16,
+                                            color: hasImage ? Colors.white : const Color(0xFF4A72EC),
+                                          ),
+                                          label: Text(
+                                            'Ganti / Tambah',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: hasImage ? Colors.white : const Color(0xFF4A72EC),
+                                            ),
+                                          ),
+                                          style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
 
-                          // Twin Cards: Kelembapan & Suhu
+                          // Twin Cards
                           Row(
                             children: [
                               Expanded(
@@ -664,9 +754,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: _buildMetricCard(
                                   title: 'Suhu Tanah',
                                   value: isConnectedToESP ? '${tempValue.toStringAsFixed(1)}°C' : '--',
-                                  status: isConnectedToESP
-                                      ? (isMeasuring ? 'Merekam data...' : 'Suhu Terdeteksi')
-                                      : 'Menunggu data',
+                                  status: isConnectedToESP ? (isMeasuring ? 'Merekam data...' : 'Suhu Terdeteksi') : 'Menunggu data',
                                   icon: Icons.thermostat_rounded,
                                   accentColor: const Color(0xFFF97316),
                                 ),
@@ -675,7 +763,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // >>> TOMBOL START PENGUKURAN (FOKUS UTAMA DI TENGAH) <<<
+                          // Tombol Start Pengukuran
                           Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
@@ -716,11 +804,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     isMeasuring
                                         ? 'Berhenti (${remainingSeconds ~/ 60}:${(remainingSeconds % 60).toString().padLeft(2, '0')})'
                                         : 'Mulai Pengukuran (${currentPlot.name})',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                                   ),
                                 ],
                               ),
@@ -728,7 +812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Card Jalur Komunikasi Lokal
+                          // Jalur Komunikasi
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -766,7 +850,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Baterai & Status Link
+                          // Baterai & Link
                           Row(
                             children: [
                               Expanded(
@@ -830,7 +914,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 20),
 
-                          // Footer Logo
+                          // Logo Footer
                           Center(
                             child: Image.asset(
                               'assets/logo_kementan.webp',
@@ -882,10 +966,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: secondaryTextColor)),
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: accentColor.withOpacity(0.15), shape: BoxShape.circle),
                 child: Icon(icon, size: 16, color: accentColor),
               ),
             ],
