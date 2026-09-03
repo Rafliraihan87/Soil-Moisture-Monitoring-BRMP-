@@ -17,12 +17,96 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  bool isLogin = true;
   bool isPasswordVisible = false;
+  bool isConfirmPasswordVisible = false;
+
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   final Color primaryTextColor = const Color(0xFF1E293B);
   final Color secondaryTextColor = const Color(0xFF64748B);
+
+  // Dialog Lupa Password
+  void _showForgotPasswordDialog() {
+    final TextEditingController resetEmailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: AlertDialog(
+            backgroundColor: Colors.white.withOpacity(0.95),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            title: const Row(
+              children: [
+                Icon(Icons.lock_reset_rounded, color: Color(0xFF4A72EC), size: 26),
+                SizedBox(width: 8),
+                Text(
+                  'Reset Password',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Masukkan email atau username yang terdaftar untuk menerima link reset kata sandi.',
+                  style: TextStyle(fontSize: 12.5, color: secondaryTextColor),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: TextField(
+                    controller: resetEmailController,
+                    style: TextStyle(color: primaryTextColor, fontSize: 13.5),
+                    decoration: InputDecoration(
+                      hintText: 'Email atau Username',
+                      hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Batal', style: TextStyle(color: secondaryTextColor, fontWeight: FontWeight.w600)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Instruksi reset password telah dikirim ke email!'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A72EC),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Kirim', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,8 +139,8 @@ class _AuthScreenState extends State<AuthScreen> {
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                width: double.infinity, // Memastikan lebar penuh layar HP
-                height: screenHeight * 0.72,
+                width: double.infinity,
+                height: screenHeight * (isLogin ? 0.74 : 0.82),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.68),
                   borderRadius: const BorderRadius.only(
@@ -79,13 +163,13 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Title & Subtitle
                           Text(
-                            'Welcome Back!',
+                            isLogin ? 'Welcome Back!' : 'Create Account',
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
@@ -95,14 +179,14 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'We missed you',
+                            isLogin ? 'We missed you' : 'Monitoring kebun jeruk pintar',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: secondaryTextColor,
                             ),
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 20),
 
                           // Username Field
                           _buildInputField(
@@ -128,29 +212,50 @@ class _AuthScreenState extends State<AuthScreen> {
                             },
                           ),
 
-                          // Forgot Password Link
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {},
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                'Forgot Password?',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: secondaryTextColor,
+                          // Confirm Password Field (Hanya saat Register)
+                          if (!isLogin) ...[
+                            const SizedBox(height: 14),
+                            _buildInputField(
+                              label: 'Konfirmasi Password',
+                              controller: confirmPasswordController,
+                              hint: '••••••••',
+                              prefixIcon: Icons.lock_outline_rounded,
+                              isPassword: true,
+                              isVisible: isConfirmPasswordVisible,
+                              onToggleVisibility: () {
+                                setState(() {
+                                  isConfirmPasswordVisible = !isConfirmPasswordVisible;
+                                });
+                              },
+                            ),
+                          ],
+
+                          // Forgot Password Link (Hanya muncul saat mode Login)
+                          if (isLogin) ...[
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _showForgotPasswordDialog,
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  'Forgot Password?',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: secondaryTextColor,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 18),
+                            const SizedBox(height: 16),
+                          ] else
+                            const SizedBox(height: 20),
 
-                          // Gradient Sign In Button
+                          // Gradient Action Button (Sign in / Daftar)
                           Container(
                             width: double.infinity,
                             height: 48,
@@ -185,9 +290,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                   borderRadius: BorderRadius.circular(24),
                                 ),
                               ),
-                              child: const Text(
-                                'Sign in',
-                                style: TextStyle(
+                              child: Text(
+                                isLogin ? 'Sign in' : 'Daftar Sekarang',
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -195,7 +300,34 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 14),
+
+                          // Toggle Antara Login & Daftar
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                isLogin ? 'Belum punya akun? ' : 'Sudah punya akun? ',
+                                style: TextStyle(
+                                  color: secondaryTextColor,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => setState(() => isLogin = !isLogin),
+                                child: Text(
+                                  isLogin ? 'Daftar' : 'Login',
+                                  style: const TextStyle(
+                                    color: Color(0xFF4A72EC),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
 
                           // Divider Pemisah
                           Row(
@@ -203,7 +335,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               Expanded(child: Divider(color: secondaryTextColor.withOpacity(0.25))),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: Text(
+                                child: Text(
                                   'Official App',
                                   style: TextStyle(
                                     fontSize: 11,
@@ -215,13 +347,13 @@ class _AuthScreenState extends State<AuthScreen> {
                               Expanded(child: Divider(color: secondaryTextColor.withOpacity(0.25))),
                             ],
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
 
                           // Logo Instansi
                           Center(
                             child: Image.asset(
                               'assets/logo_kementan.webp',
-                              height: 65,
+                              height: 60,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) => const Icon(
                                 Icons.agriculture_rounded,
