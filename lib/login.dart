@@ -20,6 +20,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool isLogin = true;
   bool isPasswordVisible = false;
   bool isConfirmPasswordVisible = false;
+  bool isLoading = false;
 
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -255,7 +256,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           ] else
                             const SizedBox(height: 20),
 
-                          // Gradient Action Button (Sign in / Daftar)
+                          // Gradient Action Button (Sign in / Daftar) dengan Loading
                           Container(
                             width: double.infinity,
                             height: 48,
@@ -275,14 +276,24 @@ class _AuthScreenState extends State<AuthScreen> {
                               ],
                             ),
                             child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const DashboardScreen(),
-                                  ),
-                                );
-                              },
+                              onPressed: isLoading
+                                  ? null
+                                  : () async {
+                                      setState(() => isLoading = true);
+
+                                      // Simulasi loading autentikasi dan sinkronisasi data
+                                      await Future.delayed(const Duration(milliseconds: 1800));
+
+                                      if (!mounted) return;
+                                      setState(() => isLoading = false);
+
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const DashboardScreen(),
+                                        ),
+                                      );
+                                    },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
@@ -290,14 +301,23 @@ class _AuthScreenState extends State<AuthScreen> {
                                   borderRadius: BorderRadius.circular(24),
                                 ),
                               ),
-                              child: Text(
-                                isLogin ? 'Sign in' : 'Daftar Sekarang',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      isLogin ? 'Sign in' : 'Daftar Sekarang',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 14),
