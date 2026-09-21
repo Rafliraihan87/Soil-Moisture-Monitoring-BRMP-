@@ -562,6 +562,74 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  // ============================================================
+  // POP-UP PERINGATAN WIFI BELUM TERHUBUNG
+  // ============================================================
+
+  void _showWifiRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Colors.orange,
+                  size: 24,
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              const Expanded(
+                child: Text(
+                  'WiFi Belum Terhubung',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+
+          content: const Text(
+            'Harap terhubung ke WiFi perangkat '
+            '"CitriSoil_ESP32" terlebih dahulu sebelum '
+            'memulai pengukuran.',
+            style: TextStyle(fontSize: 14, height: 1.5),
+          ),
+
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A72EC),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Mengerti',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // Modal Durasi Pengukuran
   void _showDurationPickerModal() {
     int selectedMinutes = 2;
@@ -1525,7 +1593,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     child: InkWell(
                                       onTap: isMeasuring
                                           ? _finishAndSaveSession
-                                          : _showDurationPickerModal,
+                                          : () {
+                                              if (!isConnectedToESP) {
+                                                _showWifiRequiredDialog();
+                                              } else {
+                                                _showDurationPickerModal();
+                                              }
+                                            },
                                       child: Center(
                                         child: Row(
                                           mainAxisAlignment:
