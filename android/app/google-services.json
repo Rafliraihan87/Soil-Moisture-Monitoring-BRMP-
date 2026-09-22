@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "764189889051",
+    "project_id": "citri-soil-app",
+    "storage_bucket": "citri-soil-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:764189889051:android:83615677e869bd6d1b9ebe",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBA61TDU59Xp5q6JLi6byMiSLUggCeXYJY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
