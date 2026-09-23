@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/gestures.dart';
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'login.dart';
@@ -29,13 +30,13 @@ class SoilRecord {
 class SoilPlot {
   final String id;
   String name;
-  String? imagePath;
+  String? imageData;
   final List<SoilRecord> records;
 
   SoilPlot({
     required this.id,
     required this.name,
-    this.imagePath,
+    this.imageData,
     required this.records,
   });
 }
@@ -65,17 +66,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   double batteryVolt = 0.0;
 
   // Alur Sampling & Pengukuran
-  List<SoilPlot> plots = [
-    SoilPlot(
-      id: 'local-default',
-      name: 'Tanah 1',
-      imagePath: null,
-      records: [],
-    ),
-  ];
-
+  List<SoilPlot> plots = [];
   int selectedPlotIndex = 0;
   bool isLoadingPlants = true;
+
+  static const String _pendingRecordsKey = 'pending_soil_records';
 
   bool isMeasuring = false;
   int remainingSeconds = 0;
@@ -96,6 +91,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _fetchSensorData();
     _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _fetchSensorData();
+      _syncPendingRecords();
     });
   }
 
@@ -107,10 +103,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     _client.close();
     super.dispose();
   }
-
-  // ============================================================
-  // FIRESTORE - DATA TANAMAN / TANAH
-  // ============================================================
 
   CollectionReference<Map<String, dynamic>> get _plantsCollection {
     final user = FirebaseAuth.instance.currentUser;
@@ -124,108 +116,250 @@ class _DashboardScreenState extends State<DashboardScreen>
         .collection('plants');
   }
 
-  Future<void> _loadPlants() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      if (mounted) {
-        setState(() => isLoadingPlants = false);
-      }
-      return;
-    }
+  Future<List<Map<String, dynamic>>> _getPendingRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingRecordsKey);
+    if (raw == null || raw.isEmpty) return [];
 
     try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (_) {}
+
+    return [];
+  }
+
+  Future<void> _savePendingRecords(
+    List<Map<String, dynamic>> records,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingRecordsKey, jsonEncode(records));
+  }
+
+  Future<void> _saveRecordLocally({
+    required String plantId,
+    required String plantName,
+    required int avgMoisture,
+    required double avgTemp,
+    required DateTime timestamp,
+  }) async {
+    final pending = await _getPendingRecords();
+    pending.add({
+      'plantId': plantId,
+      'plantName': plantName,
+      'avgMoisture': avgMoisture,
+      'avgTemp': avgTemp,
+      'timestamp': timestamp.toIso8601String(),
+    });
+    await _savePendingRecords(pending);
+  }
+
+  Future<void> _loadPlants() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
       final snapshot = await _plantsCollection
-          .orderBy('createdAt', descending: false)
+          .orderBy('createdAt')
           .get();
 
-      if (snapshot.docs.isEmpty) {
-        // Mempertahankan perilaku aplikasi lama: setiap akun baru
-        // langsung mempunyai satu target awal bernama "Tanah 1".
-        final newDoc = await _plantsCollection.add({
-          'name': 'Tanah 1',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+      final loaded = <SoilPlot>[];
 
-        if (!mounted) return;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final records = <SoilRecord>[];
 
-        setState(() {
-          plots = [
-            SoilPlot(
-              id: newDoc.id,
-              name: 'Tanah 1',
-              imagePath: null,
-              records: [],
-            ),
-          ];
-          selectedPlotIndex = 0;
-          isLoadingPlants = false;
-        });
-        return;
+        try {
+          final measurementSnapshot = await doc.reference
+              .collection('measurements')
+              .orderBy('timestamp', descending: false)
+              .get();
+
+          for (var i = 0; i < measurementSnapshot.docs.length; i++) {
+            final measurement = measurementSnapshot.docs[i].data();
+            final ts = measurement['timestamp'];
+            DateTime timestamp;
+
+            if (ts is Timestamp) {
+              timestamp = ts.toDate();
+            } else if (ts is String) {
+              timestamp = DateTime.tryParse(ts) ?? DateTime.now();
+            } else {
+              timestamp = DateTime.now();
+            }
+
+            records.add(
+              SoilRecord(
+                testNumber: i + 1,
+                avgMoisture: (measurement['moisture'] as num?)?.toInt() ?? 0,
+                avgTemp: (measurement['temperature'] as num?)?.toDouble() ?? 0,
+                timestamp: timestamp,
+              ),
+            );
+          }
+        } catch (_) {
+          // Riwayat tetap kosong jika pembacaan measurement gagal.
+        }
+
+        loaded.add(
+          SoilPlot(
+            id: doc.id,
+            name: (data['name'] as String?) ?? 'Tanah',
+            imageData: data['imageData'] as String?,
+            records: records,
+          ),
+        );
       }
 
-      final loadedPlots = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return SoilPlot(
-          id: doc.id,
-          name: (data['name'] as String?)?.trim().isNotEmpty == true
-              ? (data['name'] as String).trim()
-              : 'Tanpa Nama',
-          imagePath: null,
-          records: [],
-        );
-      }).toList();
 
       if (!mounted) return;
-
       setState(() {
-        plots = loadedPlots;
+        plots = loaded;
         selectedPlotIndex = 0;
         isLoadingPlants = false;
       });
-    } catch (e) {
+
+      await _applyPendingRecordsToLocalPlots();
+      await _syncPendingRecords();
+    } catch (_) {
       if (!mounted) return;
-
       setState(() => isLoadingPlants = false);
+    }
+  }
 
+  Future<void> _applyPendingRecordsToLocalPlots() async {
+    final pending = await _getPendingRecords();
+    if (pending.isEmpty || !mounted) return;
+
+    for (final item in pending) {
+      final plantId = item['plantId'] as String?;
+      final plotIndex = plots.indexWhere((p) => p.id == plantId);
+      if (plotIndex == -1) continue;
+
+      final plot = plots[plotIndex];
+      final timestamp = DateTime.tryParse(
+            item['timestamp'] as String? ?? '',
+          ) ??
+          DateTime.now();
+
+      final alreadyExists = plot.records.any(
+        (record) => record.timestamp.isAtSameMomentAs(timestamp),
+      );
+
+      if (!alreadyExists) {
+        plot.records.add(
+          SoilRecord(
+            testNumber: plot.records.length + 1,
+            avgMoisture: (item['avgMoisture'] as num?)?.toInt() ?? 0,
+            avgTemp: (item['avgTemp'] as num?)?.toDouble() ?? 0,
+            timestamp: timestamp,
+          ),
+        );
+      }
+    }
+
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _syncPendingRecords() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final pending = await _getPendingRecords();
+    if (pending.isEmpty) return;
+
+    final remaining = <Map<String, dynamic>>[];
+    var syncedCount = 0;
+
+    for (final item in pending) {
+      try {
+        final plantId = item['plantId'] as String;
+        final timestamp = DateTime.tryParse(
+              item['timestamp'] as String? ?? '',
+            ) ??
+            DateTime.now();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('plants')
+            .doc(plantId)
+            .collection('measurements')
+            .add({
+          'moisture': (item['avgMoisture'] as num?)?.toInt() ?? 0,
+          'temperature': (item['avgTemp'] as num?)?.toDouble() ?? 0,
+          'timestamp': Timestamp.fromDate(timestamp),
+        });
+
+        syncedCount++;
+      } catch (_) {
+        remaining.add(item);
+      }
+    }
+
+    await _savePendingRecords(remaining);
+
+    if (syncedCount > 0 && remaining.isEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal memuat data tanaman dari Firebase: $e'),
-          backgroundColor: Colors.redAccent,
+          content: Text('$syncedCount data offline berhasil disinkronkan ke database.'),
+          backgroundColor: const Color(0xFF00C828),
           behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-  Future<SoilPlot?> _addPlantToFirebase({
-    required String name,
-    String? imagePath,
-  }) async {
-    final user = FirebaseAuth.instance.currentUser;
+  void _showOfflineSavedAlert() {
+    if (!mounted) return;
 
-    if (user == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sesi login tidak ditemukan. Silakan login kembali.'),
-            behavior: SnackBarBehavior.floating,
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
           ),
+          title: const Row(
+            children: [
+              Icon(Icons.cloud_off_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Data Belum Tersimpan ke Database',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Koneksi ke database tidak tersedia. Data pengukuran sudah disimpan sementara di perangkat dan akan otomatis dikirim ketika koneksi kembali.',
+            style: TextStyle(fontSize: 13.5, height: 1.5),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A72EC),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Mengerti',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         );
-      }
-      return null;
-    }
-
-    final doc = await _plantsCollection.add({
-      'name': name,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    return SoilPlot(
-      id: doc.id,
-      name: name,
-      imagePath: imagePath,
-      records: [],
+      },
     );
   }
 
@@ -454,7 +588,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Navigator.pop(context);
                   _pollingTimer?.cancel();
                   _countdownTimer?.cancel();
-
                   await FirebaseAuth.instance.signOut();
 
                   if (!mounted) return;
@@ -911,42 +1044,82 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  void _finishAndSaveSession() {
+  Future<void> _finishAndSaveSession() async {
     _countdownTimer?.cancel();
-    setState(() => isMeasuring = false);
 
-    if (sessionMoisture.isNotEmpty && sessionTemp.isNotEmpty) {
-      final avgM =
-          (sessionMoisture.reduce((a, b) => a + b) / sessionMoisture.length)
-              .round();
-      final avgT = double.parse(
-        (sessionTemp.reduce((a, b) => a + b) / sessionTemp.length)
-            .toStringAsFixed(1),
-      );
+    if (mounted) {
+      setState(() => isMeasuring = false);
+    }
 
-      final plot = plots[selectedPlotIndex];
-      final recordIndex = plot.records.length + 1;
+    if (sessionMoisture.isEmpty || sessionTemp.isEmpty || plots.isEmpty) {
+      return;
+    }
 
+    final avgM =
+        (sessionMoisture.reduce((a, b) => a + b) / sessionMoisture.length)
+            .round();
+    final avgT = double.parse(
+      (sessionTemp.reduce((a, b) => a + b) / sessionTemp.length)
+          .toStringAsFixed(1),
+    );
+
+    final plot = plots[selectedPlotIndex];
+    final recordIndex = plot.records.length + 1;
+    final timestamp = DateTime.now();
+
+    if (mounted) {
       setState(() {
         plot.records.add(
           SoilRecord(
             testNumber: recordIndex,
             avgMoisture: avgM,
             avgTemp: avgT,
-            timestamp: DateTime.now(),
+            timestamp: timestamp,
           ),
         );
       });
+    }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Pengukuran $recordIndex dari "${plot.name}" tersimpan!',
+    final user = FirebaseAuth.instance.currentUser;
+
+    try {
+      if (user == null) {
+        throw StateError('User belum login.');
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('plants')
+          .doc(plot.id)
+          .collection('measurements')
+          .add({
+        'moisture': avgM,
+        'temperature': avgT,
+        'timestamp': Timestamp.fromDate(timestamp),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Pengukuran $recordIndex dari "${plot.name}" tersimpan ke database.',
+            ),
+            backgroundColor: const Color(0xFF00C828),
+            behavior: SnackBarBehavior.floating,
           ),
-          backgroundColor: const Color(0xFF00C828),
-          behavior: SnackBarBehavior.floating,
-        ),
+        );
+      }
+    } catch (_) {
+      await _saveRecordLocally(
+        plantId: plot.id,
+        plantName: plot.name,
+        avgMoisture: avgM,
+        avgTemp: avgT,
+        timestamp: timestamp,
       );
+
+      _showOfflineSavedAlert();
     }
   }
 
@@ -1019,11 +1192,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Dialog Pemilih Sumber Gambar
-  Future<String?> _pickImageSource() async {
+  Future<String?> _pickImageBase64() async {
     ImageSource? source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => BackdropFilter(
+      builder: (sheetContext) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
@@ -1037,47 +1210,25 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
               const SizedBox(height: 16),
-              const Text(
-                'Lampirkan Foto Tumbuhan',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              const Text('Lampirkan Foto Tumbuhan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 14),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE0E7FF),
-                  child: Icon(
-                    Icons.camera_alt_rounded,
-                    color: Color(0xFF4A72EC),
-                  ),
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFFE0E7FF), child: Icon(Icons.camera_alt_rounded, color: Color(0xFF4A72EC))),
+                  title: const Text('Ambil Foto (Kamera)', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
                 ),
-                title: const Text(
-                  'Ambil Foto (Kamera)',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE0E7FF),
-                  child: Icon(
-                    Icons.photo_library_rounded,
-                    color: Color(0xFF4A72EC),
-                  ),
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFFE0E7FF), child: Icon(Icons.photo_library_rounded, color: Color(0xFF4A72EC))),
+                  title: const Text('Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
                 ),
-                title: const Text(
-                  'Pilih dari Galeri',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
             ],
           ),
@@ -1085,351 +1236,600 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
 
-    if (source != null) {
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        imageQuality: 70,
-      );
-      if (image != null) return image.path;
-    }
-    return null;
+    if (source == null) return null;
+
+    final XFile? image = await _picker.pickImage(
+      source: source,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 65,
+    );
+    if (image == null) return null;
+
+    final bytes = await image.readAsBytes();
+    return base64Encode(bytes);
   }
 
-  // Bottom Sheet Memilih / Menambah Tanah Baru
+  Future<void> _editPlant(SoilPlot plot) async {
+    String newName = plot.name;
+    String? newImageData = plot.imageData;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Tanaman'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await _pickImageBase64();
+                      if (picked != null) {
+                        setDialogState(() => newImageData = picked);
+                      }
+                    },
+                    child: Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0E7FF),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFF4A72EC).withOpacity(0.25)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: newImageData != null
+                          ? Image.memory(base64Decode(newImageData!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 36))
+                          : const Icon(Icons.add_a_photo_rounded, color: Color(0xFF4A72EC), size: 34),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    newImageData == null ? 'Tambah foto tanaman' : 'Ketuk foto untuk mengganti',
+                    style: TextStyle(fontSize: 12, color: secondaryTextColor),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: plot.name,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onChanged: (value) => newName = value,
+                    decoration: const InputDecoration(labelText: 'Nama tanaman', hintText: 'Contoh: Jeruk 1'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Batal')),
+                ElevatedButton(onPressed: () { if (newName.trim().isNotEmpty) Navigator.pop(dialogContext, true); }, child: const Text('Simpan')),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != true) return;
+
+    final name = newName.trim();
+    final user = FirebaseAuth.instance.currentUser;
+
+    try {
+      if (user == null) throw StateError('User belum login.');
+
+      final docRef = _plantsCollection.doc(plot.id);
+      await docRef.update({'name': name, 'imageData': newImageData});
+
+      if (!mounted) return;
+      setState(() {
+        plot.name = name;
+        plot.imageData = newImageData;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tanaman berhasil diperbarui.'), behavior: SnackBarBehavior.floating));
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengubah tanaman: ${e.code}'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengubah tanaman: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating));
+    }
+  }
+
+  Future<void> _deletePlant(SoilPlot plot) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Hapus Tanaman?'),
+          content: Text(
+            'Tanaman "${plot.name}" beserta seluruh riwayat pengukurannya akan dihapus dari database.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    try {
+      if (user == null) {
+        throw StateError('User belum login.');
+      }
+
+      final plantRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('plants')
+          .doc(plot.id);
+
+      final plantSnapshot = await plantRef.get();
+      if (!plantSnapshot.exists) {
+        throw StateError('Data tanaman tidak ditemukan di database.');
+      }
+
+      // Firestore tidak otomatis menghapus subcollection ketika parent
+      // dihapus. Hapus measurements dalam beberapa batch agar tetap aman
+      // meskipun jumlah riwayat pengukuran banyak.
+      final measurementsSnapshot =
+          await plantRef.collection('measurements').get();
+      final measurementDocs = measurementsSnapshot.docs;
+
+      for (var start = 0; start < measurementDocs.length; start += 450) {
+        final end = (start + 450 < measurementDocs.length)
+            ? start + 450
+            : measurementDocs.length;
+
+        final batch = FirebaseFirestore.instance.batch();
+        for (final doc in measurementDocs.sublist(start, end)) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+
+      // Parent dihapus setelah seluruh measurements selesai dihapus.
+      await plantRef.delete();
+
+      // Data lokal yang masih menunggu sinkronisasi tidak boleh ikut kembali
+      // menghidupkan data tanaman yang sudah dihapus.
+      try {
+        final pending = await _getPendingRecords();
+        pending.removeWhere((item) => item['plantId'] == plot.id);
+        await _savePendingRecords(pending);
+      } catch (_) {
+        // Penghapusan Firestore tetap dianggap berhasil meskipun pembersihan
+        // cache lokal gagal.
+      }
+
+      if (!mounted) return;
+      setState(() {
+        final deletedIndex = plots.indexOf(plot);
+        plots.remove(plot);
+
+        if (plots.isEmpty) {
+          selectedPlotIndex = 0;
+        } else if (selectedPlotIndex > deletedIndex) {
+          selectedPlotIndex--;
+        } else if (selectedPlotIndex >= plots.length) {
+          selectedPlotIndex = plots.length - 1;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanaman berhasil dihapus.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menghapus tanaman: ${e.code}'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menghapus tanaman: $e'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // Bottom Sheet Memilih / Menambah Tanaman
   void _showPlotManagerSheet() {
-    final TextEditingController newPlotCtrl = TextEditingController();
-    String? pickedImagePath;
+    String newPlotName = '';
+    String? newPlotImage;
     bool isAddingPlant = false;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.72,
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(32),
-                    topRight: Radius.circular(32),
+            final keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
+
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              padding: EdgeInsets.only(bottom: keyboardBottom),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.78,
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(10),
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Pilih atau Buat Tanah',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
+                      const SizedBox(height: 16),
+                      Text(
+                        'Pilih Tanaman',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryTextColor,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: isLoadingPlants
-                          ? const Center(child: CircularProgressIndicator())
-                          : ListView.separated(
-                              itemCount: plots.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                final p = plots[index];
-                                final isCurrent = selectedPlotIndex == index;
-                                return ListTile(
-                                  tileColor: isCurrent
-                                      ? const Color(0xFF4A72EC)
-                                          .withOpacity(0.08)
-                                      : Colors.grey.shade50,
-                                  shape: RoundedRectangleBorder(
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.30,
+                        child: isLoadingPlants
+                            ? const Center(child: CircularProgressIndicator())
+                            : plots.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.eco_outlined,
+                                          size: 46,
+                                          color: Colors.grey.shade400,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'Belum ada tanaman',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: primaryTextColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Tambahkan tanaman untuk mulai mengukur.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: secondaryTextColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.separated(
+                                itemCount: plots.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final p = plots[index];
+                                  final isCurrent = selectedPlotIndex == index;
+
+                                  return Material(
+                                    color: Colors.transparent,
                                     borderRadius: BorderRadius.circular(14),
-                                    side: BorderSide(
-                                      color: isCurrent
-                                          ? const Color(0xFF4A72EC)
-                                          : Colors.transparent,
-                                      width: 1.2,
-                                    ),
-                                  ),
-                                  leading: Container(
-                                    width: 42,
-                                    height: 42,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: const Color(0xFF4A72EC)
-                                          .withOpacity(0.1),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: p.imagePath != null
-                                          ? (p.imagePath!.startsWith('assets/')
-                                                ? Image.asset(
-                                                    p.imagePath!,
-                                                    fit: BoxFit.cover,
-                                                  )
-                                                : Image.file(
-                                                    File(p.imagePath!),
-                                                    fit: BoxFit.cover,
-                                                  ))
-                                          : const Icon(
-                                              Icons.eco_rounded,
+                                    child: ListTile(
+                                      tileColor: isCurrent
+                                          ? const Color(0xFF4A72EC).withOpacity(0.08)
+                                          : Colors.grey.shade50,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        side: BorderSide(
+                                          color: isCurrent
+                                              ? const Color(0xFF4A72EC)
+                                              : Colors.transparent,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      leading: Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(10),
+                                          color: const Color(0xFF4A72EC).withOpacity(0.1),
+                                        ),
+                                        child: p.imageData != null
+                                            ? ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: Image.memory(
+                                                  base64Decode(p.imageData!),
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) => const Icon(Icons.eco_rounded, color: Color(0xFF4A72EC)),
+                                                ),
+                                              )
+                                            : const Icon(
+                                                Icons.eco_rounded,
+                                                color: Color(0xFF4A72EC),
+                                              ),
+                                      ),
+                                      title: Text(
+                                        p.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isCurrent
+                                              ? const Color(0xFF4A72EC)
+                                              : primaryTextColor,
+                                        ),
+                                      ),
+                                      subtitle: Text('${p.records.length} data tersimpan'),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isCurrent)
+                                            const Icon(
+                                              Icons.check_circle_rounded,
                                               color: Color(0xFF4A72EC),
                                             ),
+                                          PopupMenuButton<String>(
+                                            tooltip: 'Kelola tanaman',
+                                            onSelected: (value) {
+                                              if (value == 'edit') {
+                                                _editPlant(p);
+                                              } else if (value == 'delete') {
+                                                _deletePlant(p);
+                                              }
+                                            },
+                                            itemBuilder: (_) => const [
+                                              PopupMenuItem(
+                                                value: 'edit',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit_rounded, size: 19),
+                                                    SizedBox(width: 10),
+                                                    Text('Edit nama'),
+                                                  ],
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.delete_outline_rounded, size: 19, color: Colors.redAccent),
+                                                    SizedBox(width: 10),
+                                                    Text('Hapus'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: () {
+                                        setState(() => selectedPlotIndex = index);
+                                        Navigator.pop(sheetContext);
+                                      },
                                     ),
+                                  );
+                                },
+                              ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      StatefulBuilder(
+                        builder: (imageContext, setImageState) {
+                          return Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () async {
+                                  final picked = await _pickImageBase64();
+                                  if (picked != null) {
+                                    newPlotImage = picked;
+                                    setImageState(() {});
+                                  }
+                                },
+                                child: Container(
+                                  width: 58,
+                                  height: 58,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0E7FF),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
-                                  title: Text(
-                                    p.name,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isCurrent
-                                          ? const Color(0xFF4A72EC)
-                                          : primaryTextColor,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    '${p.records.length} data tersimpan',
-                                  ),
-                                  trailing: isCurrent
-                                      ? const Icon(
-                                          Icons.check_circle_rounded,
-                                          color: Color(0xFF4A72EC),
-                                        )
-                                      : null,
-                                  onTap: () {
-                                    setState(
-                                      () => selectedPlotIndex = index,
-                                    );
-                                    Navigator.pop(context);
-                                  },
-                                );
-                              },
-                            ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (pickedImagePath != null) ...[
+                                  clipBehavior: Clip.antiAlias,
+                                  child: newPlotImage != null
+                                      ? Image.memory(base64Decode(newPlotImage!), fit: BoxFit.cover)
+                                      : const Icon(Icons.add_a_photo_rounded, color: Color(0xFF4A72EC)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  newPlotImage == null ? 'Tambah foto tanaman (opsional)' : 'Foto tanaman dipilih',
+                                  style: TextStyle(fontSize: 12, color: secondaryTextColor),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(pickedImagePath!),
-                              width: 36,
-                              height: 36,
-                              fit: BoxFit.cover,
+                          Expanded(
+                            child: TextField(
+                              onChanged: (value) => newPlotName = value,
+                              textInputAction: TextInputAction.done,
+                              decoration: InputDecoration(
+                                hintText: 'Nama tanaman (mis: Jeruk ${plots.length + 1})',
+                                hintStyle: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade500,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Foto tumbuhan terlampir',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: primaryTextColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              size: 18,
-                              color: Colors.redAccent,
-                            ),
-                            onPressed: () => setSheetState(
-                              () => pickedImagePath = null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                          ElevatedButton(
+                            onPressed: isAddingPlant
+                                ? null
+                                : () async {
+                                    final text = newPlotName.trim();
+                                    if (text.isEmpty) return;
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: newPlotCtrl,
-                            enabled: !isAddingPlant,
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Nama tanah (mis: Tanah ${plots.length + 1})',
-                              hintStyle: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade500,
+                                    setSheetState(() => isAddingPlant = true);
+
+                                    try {
+                                      final doc = await _plantsCollection.add({
+                                        'name': text,
+                                        'imageData': newPlotImage,
+                                        'createdAt': FieldValue.serverTimestamp(),
+                                      });
+
+                                      if (!mounted) return;
+
+                                      setState(() {
+                                        plots.add(
+                                          SoilPlot(
+                                            id: doc.id,
+                                            name: text,
+                                            imageData: newPlotImage,
+                                            records: [],
+                                          ),
+                                        );
+                                        selectedPlotIndex = plots.length - 1;
+                                      });
+
+                                      if (Navigator.canPop(sheetContext)) {
+                                        Navigator.pop(sheetContext);
+                                      }
+                                    } catch (_) {
+                                      if (mounted) {
+                                        setSheetState(() => isAddingPlant = false);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Gagal menambahkan tanah ke database.'),
+                                            backgroundColor: Colors.redAccent,
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F172A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
                               ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
+                              shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        IconButton.filledTonal(
-                          onPressed: isAddingPlant
-                              ? null
-                              : () async {
-                                  final path = await _pickImageSource();
-                                  if (path != null) {
-                                    setSheetState(
-                                      () => pickedImagePath = path,
-                                    );
-                                  }
-                                },
-                          icon: Icon(
-                            pickedImagePath != null
-                                ? Icons.photo_camera_back_rounded
-                                : Icons.add_a_photo_outlined,
-                            color: const Color(0xFF4A72EC),
-                          ),
-                          style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF4A72EC)
-                                .withOpacity(0.12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.all(12),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        ElevatedButton(
-                          onPressed: isAddingPlant
-                              ? null
-                              : () async {
-                                  final text = newPlotCtrl.text.trim();
-
-                                  if (text.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Nama tanaman/tanah belum diisi.',
-                                        ),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  setSheetState(() => isAddingPlant = true);
-
-                                  try {
-                                    final newPlot = await _addPlantToFirebase(
-                                      name: text,
-                                      imagePath: pickedImagePath,
-                                    );
-
-                                    if (newPlot == null) {
-                                      setSheetState(
-                                        () => isAddingPlant = false,
-                                      );
-                                      return;
-                                    }
-
-                                    if (!mounted) return;
-
-                                    setState(() {
-                                      plots.add(newPlot);
-                                      selectedPlotIndex = plots.length - 1;
-                                    });
-
-                                    Navigator.pop(context);
-
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '"$text" berhasil ditambahkan ke Firebase.',
-                                        ),
-                                        backgroundColor:
-                                            const Color(0xFF00C828),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  } catch (e) {
-                                    setSheetState(
-                                      () => isAddingPlant = false,
-                                    );
-
-                                    if (!mounted) return;
-
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Gagal menambahkan tanaman: $e',
-                                        ),
-                                        backgroundColor: Colors.redAccent,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F172A),
-                            disabledBackgroundColor: Colors.grey.shade400,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
-                          child: isAddingPlant
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                            child: isAddingPlant
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Tambah',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
-                                )
-                              : const Text(
-                                  'Tambah',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
         );
       },
-    ).whenComplete(newPlotCtrl.dispose);
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    final currentPlot = plots[selectedPlotIndex];
-    final bool hasImage = currentPlot.imagePath != null;
+
+    if (isLoadingPlants) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Dashboard tetap tampil walaupun belum ada tanaman.
+    // Bagian sensor/pengukuran hanya ditampilkan jika sudah ada target.
+    final bool hasPlants = plots.isNotEmpty;
+
+    if (hasPlants && selectedPlotIndex >= plots.length) {
+      selectedPlotIndex = 0;
+    }
+
+    final SoilPlot currentPlot = hasPlants
+        ? plots[selectedPlotIndex]
+        : SoilPlot(
+            id: 'no-plant',
+            name: 'Belum ada tanaman',
+            imageData: null,
+            records: [],
+          );
+
+    final bool hasImage = currentPlot.imageData != null;
 
     return Scaffold(
       body: SizedBox(
@@ -1437,17 +1837,45 @@ class _DashboardScreenState extends State<DashboardScreen>
         height: screenHeight,
         child: Stack(
           children: [
+            // Background mengikuti foto tanaman yang sedang dipilih.
+            // Jika tanaman belum memiliki foto, gunakan background default.
             Positioned.fill(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
-                child: Image.asset(
-                  'assets/bg_orange.png',
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Container(color: const Color(0xFFEAB308)),
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
+                    child: hasImage
+                        ? Image.memory(
+                            base64Decode(currentPlot.imageData!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Image.asset(
+                              'assets/bg_orange.png',
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Image.asset(
+                            'assets/bg_orange.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(color: const Color(0xFFEAB308)),
+                          ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.22),
+                          Colors.black.withOpacity(0.08),
+                          Colors.black.withOpacity(0.18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -1530,41 +1958,69 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
 
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: double.infinity,
-                height: screenHeight * 0.78,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.72),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(42),
-                    topRight: Radius.circular(42),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, -6),
+            DraggableScrollableSheet(
+              // Panel bisa turun sehingga foto header terlihat lebih banyak,
+              // dan bisa naik sampai menutup seluruh header.
+              initialChildSize: 0.78,
+              minChildSize: 0.55,
+              maxChildSize: 1.0,
+              snap: false,
+              expand: true,
+              shouldCloseOnMinExtent: false,
+              builder: (context, scrollController) {
+                return SizedBox.expand(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.94),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(42),
+                      topRight: Radius.circular(42),
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(42),
-                    topRight: Radius.circular(42),
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 20,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, -6),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!isConnectedToESP) ...[
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(42),
+                      topRight: Radius.circular(42),
+                    ),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          dragDevices: {
+                            PointerDeviceKind.touch,
+                            PointerDeviceKind.mouse,
+                            PointerDeviceKind.trackpad,
+                            PointerDeviceKind.stylus,
+                          },
+                        ),
+                        child: ListView(
+                          controller: scrollController,
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 20,
+                          ),
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 42,
+                                height: 5,
+                                margin: const EdgeInsets.only(bottom: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade400,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                            if (hasPlants && !isConnectedToESP) ...[
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
@@ -1625,16 +2081,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   if (hasImage) ...[
                                     Positioned.fill(
                                       child:
-                                          currentPlot.imagePath!.startsWith(
-                                            'assets/',
-                                          )
-                                          ? Image.asset(
-                                              currentPlot.imagePath!,
+                                          Image.memory(
+                                              base64Decode(currentPlot.imageData!),
                                               fit: BoxFit.cover,
-                                            )
-                                          : Image.file(
-                                              File(currentPlot.imagePath!),
-                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                                             ),
                                     ),
                                     Positioned.fill(
@@ -1692,7 +2142,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                 : const Color(0xFF4A72EC),
                                           ),
                                           label: Text(
-                                            'Ganti / Tambah',
+                                            hasPlants ? 'Ganti / Tambah' : 'Tambah Tanaman',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -1715,8 +2165,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                           ),
 
-                          // Twin Cards (Bisa Di-klik untuk Membuka Riwayat Khusus)
-                          Row(
+                          if (hasPlants) ...[
+                            // Twin Cards (Bisa Di-klik untuk Membuka Riwayat Khusus)
+                            Row(
                             children: [
                               Expanded(
                                 child: _buildMetricCard(
@@ -1850,6 +2301,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
 
                           const SizedBox(height: 16),
+                          ],
+
 
                           // Jalur Komunikasi
                           Container(
@@ -2047,12 +2500,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                           ),
                           const SizedBox(height: 8),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              );
+              },
             ),
           ],
         ),
