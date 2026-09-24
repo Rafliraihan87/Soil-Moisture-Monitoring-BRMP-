@@ -83,11 +83,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Color primaryTextColor = const Color(0xFF1E293B);
   final Color secondaryTextColor = const Color(0xFF64748B);
 
+  // Data akun pengguna
+  String profileName = 'Pengguna';
+  String profileEmail = '';
+  bool isLoadingProfile = true;
+
   @override
   void initState() {
     super.initState();
     _measuringAnimationController = AnimationController(vsync: this);
     _loadPlants();
+    _loadUserProfile();
     _fetchSensorData();
     _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _fetchSensorData();
@@ -413,6 +419,58 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  // ============================================================
+  // FIREBASE - PROFIL PENGGUNA
+  // ============================================================
+  Future<void> _loadUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          profileName = 'Pengguna';
+          profileEmail = '';
+          isLoadingProfile = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      final data = doc.data();
+      final firestoreName = (data?['name'] as String?)?.trim() ?? '';
+      final authName = user.displayName?.trim() ?? '';
+
+      // Prioritas: nama Firestore -> Firebase Auth -> bagian sebelum @ email.
+      final fallbackName = (user.email ?? 'Pengguna').split('@').first.trim();
+      final resolvedName = firestoreName.isNotEmpty
+          ? firestoreName
+          : authName.isNotEmpty
+              ? authName
+              : (fallbackName.isNotEmpty ? fallbackName : 'Pengguna');
+
+      if (!mounted) return;
+      setState(() {
+        profileName = resolvedName;
+        profileEmail = user.email ?? '';
+        isLoadingProfile = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        profileName = user.displayName?.trim().isNotEmpty == true
+            ? user.displayName!.trim()
+            : ((user.email ?? 'Pengguna').split('@').first);
+        profileEmail = user.email ?? '';
+        isLoadingProfile = false;
+      });
+    }
+  }
+
   // Modal Setting & Profil Bottom Sheet
   void _showSettingsModal() {
     showModalBottomSheet(
@@ -456,31 +514,51 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 const SizedBox(height: 16),
 
-                // CARD PROFIL PENGGUNA
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE0E7FF),
-                    child: Icon(Icons.person_rounded, color: Color(0xFF4A72EC)),
-                  ),
-                  title: const Text(
-                    'Profil Pengguna',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  subtitle: const Text(
-                    'Petani Jeruk (petani@citrisoil.com)',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProfileScreen(),
+                // CARD PROFIL PENGGUNA - DINAMIS DARI FIREBASE
+                Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFFE0E7FF),
+                      child: isLoadingProfile
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(
+                              Icons.person_rounded,
+                              color: Color(0xFF4A72EC),
+                            ),
+                    ),
+                    title: Text(
+                      profileName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                    );
-                  },
+                    ),
+                    subtitle: Text(
+                      isLoadingProfile
+                          ? 'Memuat data akun...'
+                          : profileEmail,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfileScreen(),
+                        ),
+                      ).then((_) => _loadUserProfile());
+                    },
+                  ),
                 ),
 
                 const SizedBox(height: 12),
