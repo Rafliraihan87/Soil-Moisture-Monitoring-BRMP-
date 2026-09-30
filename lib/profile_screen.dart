@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login.dart';
@@ -22,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userName = 'Pengguna';
   String userEmail = '-';
   String userRole = 'Operator Kebun';
+  String? profileImageData;
 
   int plantCount = 0;
   bool notificationsEnabled = true;
@@ -65,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final firestoreName = (data?['name'] as String?)?.trim();
       final firestoreRole = (data?['role'] as String?)?.trim();
+      final firestoreImage = (data?['imageData'] as String?)?.trim();
 
       final fallbackName = user.displayName?.trim().isNotEmpty == true
           ? user.displayName!.trim()
@@ -82,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userRole = firestoreRole?.isNotEmpty == true
             ? firestoreRole!
             : 'Operator Kebun';
+        profileImageData = firestoreImage?.isNotEmpty == true ? firestoreImage : null;
         plantCount = plantsSnapshot.size;
         notificationsEnabled = notifications ?? true;
         isLoading = false;
@@ -106,6 +111,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
 
     final nameCtrl = TextEditingController(text: userName);
+    final emailCtrl = TextEditingController(text: user.email ?? userEmail);
+    final oldPasswordCtrl = TextEditingController();
+    String? editedImageData = profileImageData;
+    bool removeImage = false;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -113,126 +122,301 @@ class _ProfileScreenState extends State<ProfileScreen> {
         bool saving = false;
 
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) {
+            final emailChanged = emailCtrl.text.trim().toLowerCase() !=
+                (user.email ?? '').trim().toLowerCase();
+
+            ImageProvider? imageProvider;
+            if (!removeImage && editedImageData != null && editedImageData!.isNotEmpty) {
+              try {
+                imageProvider = MemoryImage(base64Decode(editedImageData!));
+              } catch (_) {}
+            }
+
+            Future<void> pickPhoto() async {
+              final action = await showModalBottomSheet<String>(
+                context: builderContext,
+                backgroundColor: Colors.white,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (sheetContext) => SafeArea(
+                  child: Wrap(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.camera_alt_outlined),
+                        title: const Text('Ambil dari Kamera'),
+                        onTap: () => Navigator.pop(sheetContext, 'camera'),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.photo_library_outlined),
+                        title: const Text('Pilih dari Galeri'),
+                        onTap: () => Navigator.pop(sheetContext, 'gallery'),
+                      ),
+                      if (editedImageData != null || profileImageData != null)
+                        ListTile(
+                          leading: const Icon(Icons.delete_outline, color: Colors.red),
+                          title: const Text('Hapus Foto Profil'),
+                          onTap: () => Navigator.pop(sheetContext, 'delete'),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+
+              if (action == null) return;
+              if (action == 'delete') {
+                setDialogState(() {
+                  editedImageData = null;
+                  removeImage = true;
+                });
+                return;
+              }
+
+              final picker = ImagePicker();
+              final file = await picker.pickImage(
+                source: action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+                maxWidth: 800,
+                maxHeight: 800,
+                imageQuality: 65,
+              );
+              if (file == null) return;
+
+              final bytes = await file.readAsBytes();
+              setDialogState(() {
+                editedImageData = base64Encode(bytes);
+                removeImage = false;
+              });
+            }
+
             return AlertDialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: const Text(
                 'Edit Profil',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama Lengkap',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person_outline),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: saving ? null : pickPhoto,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 45,
+                            backgroundColor: primaryColor.withOpacity(0.15),
+                            backgroundImage: imageProvider,
+                            child: imageProvider == null
+                                ? Icon(Icons.person_rounded, size: 50, color: primaryColor)
+                                : null,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4A72EC),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: TextEditingController(text: user.email ?? '-'),
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      helperText: 'Email mengikuti akun Firebase',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
+                    const SizedBox(height: 8),
+                    Text('Ketuk foto untuk mengganti', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Lengkap',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                    ),
+                    if (emailChanged) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: oldPasswordCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Password Saat Ini',
+                          helperText: 'Diperlukan untuk mengonfirmasi perubahan email.',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
                   onPressed: saving ? null : () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Batal',
-                    style: TextStyle(color: secondaryTextColor),
-                  ),
+                  child: Text('Batal', style: TextStyle(color: secondaryTextColor)),
                 ),
                 ElevatedButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final name = nameCtrl.text.trim();
+                  onPressed: saving ? null : () async {
+                    final name = nameCtrl.text.trim();
+                    final email = emailCtrl.text.trim();
 
-                          if (name.isEmpty) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Nama tidak boleh kosong.'),
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(builderContext).showSnackBar(
+                        const SnackBar(content: Text('Nama tidak boleh kosong.')),
+                      );
+                      return;
+                    }
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+                      ScaffoldMessenger.of(builderContext).showSnackBar(
+                        const SnackBar(content: Text('Format email tidak valid.')),
+                      );
+                      return;
+                    }
+                    if (emailChanged && oldPasswordCtrl.text.isEmpty) {
+                      ScaffoldMessenger.of(builderContext).showSnackBar(
+                        const SnackBar(content: Text('Masukkan password saat ini untuk mengubah email.')),
+                      );
+                      return;
+                    }
+
+                    setDialogState(() => saving = true);
+                    try {
+                      if (emailChanged) {
+                        final credential = EmailAuthProvider.credential(
+                          email: user.email ?? '',
+                          password: oldPasswordCtrl.text,
+                        );
+                        await user.reauthenticateWithCredential(credential);
+                        await user.verifyBeforeUpdateEmail(email);
+                      }
+
+                      await _userDoc!.set({
+                        'name': name,
+                        'email': email,
+                        'imageData': removeImage ? null : editedImageData,
+                      }, SetOptions(merge: true));
+                      await user.updateDisplayName(name);
+
+                      if (!mounted) return;
+                      setState(() {
+                        userName = name;
+                        userEmail = email;
+                        profileImageData = removeImage ? null : editedImageData;
+                      });
+                      
+                      if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+
+                      // POP-UP DIALOG TAMPIL JIKA EMAIL DIUBAH
+                      if (emailChanged && mounted) {
+                        await showDialog<void>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (popContext) {
+                            return AlertDialog(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            );
-                            return;
-                          }
-
-                          setDialogState(() => saving = true);
-
-                          try {
-                            await _userDoc!.set(
-                              {
-                                'name': name,
-                                'email': user.email,
-                              },
-                              SetOptions(merge: true),
-                            );
-
-                            await user.updateDisplayName(name);
-
-                            if (!mounted) return;
-
-                            setState(() {
-                              userName = name;
-                              userEmail = user.email ?? '-';
-                            });
-
-                            if (dialogContext.mounted) {
-                              Navigator.pop(dialogContext, true);
-                            }
-                          } catch (e) {
-                            if (!mounted) return;
-
-                            setDialogState(() => saving = false);
-
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Gagal memperbarui profil: $e',
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.mark_email_unread_rounded, color: Color(0xFF4A72EC), size: 28),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Verifikasi Email Baru',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Link verifikasi telah dikirimkan ke alamat email baru Anda:',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4A72EC).withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      email,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4A72EC),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Silakan buka kotak masuk email tersebut dan klik link konfirmasi agar email di akun Anda resmi diperbarui.',
+                                    style: TextStyle(fontSize: 12, color: Colors.black87),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(popContext),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4A72EC),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Saya Mengerti',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                              ),
+                              ],
                             );
-                          }
-                        },
+                          },
+                        );
+                      }
+                    } on FirebaseAuthException catch (e) {
+                      if (!builderContext.mounted) return;
+                      setDialogState(() => saving = false);
+                      final message = switch (e.code) {
+                        'wrong-password' || 'invalid-credential' => 'Password saat ini salah.',
+                        'email-already-in-use' => 'Email tersebut sudah digunakan.',
+                        'invalid-email' => 'Format email tidak valid.',
+                        'requires-recent-login' => 'Silakan login ulang sebelum mengubah email.',
+                        _ => 'Gagal memperbarui profil: ${e.message ?? e.code}',
+                      };
+                      ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text(message)));
+                    } catch (e) {
+                      if (!builderContext.mounted) return;
+                      setDialogState(() => saving = false);
+                      ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text('Gagal memperbarui profil: $e')));
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   child: saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Simpan',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -242,53 +426,176 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     nameCtrl.dispose();
+    emailCtrl.dispose();
+    oldPasswordCtrl.dispose();
 
     if (saved == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil berhasil diperbarui.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Profil berhasil diperbarui.'),
+        backgroundColor: Colors.green,
+      ));
     }
   }
 
   Future<void> _changePassword() async {
     final user = _user;
     final email = user?.email;
-
-    if (email == null || email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email akun tidak tersedia.'),
-        ),
-      );
+    if (user == null || email == null || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun tidak menggunakan email/password.')));
       return;
     }
 
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+    final oldCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
 
-      if (!mounted) return;
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        bool saving = false;
+        bool oldObscure = true;
+        bool newObscure = true;
+        bool confirmObscure = true;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Link ubah kata sandi dikirim ke $email.',
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
+        return StatefulBuilder(builder: (builderContext, setDialogState) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Ubah Kata Sandi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            content: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                  controller: oldCtrl,
+                  obscureText: oldObscure,
+                  decoration: InputDecoration(
+                    labelText: 'Password Saat Ini',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: () => setDialogState(() => oldObscure = !oldObscure),
+                      icon: Icon(oldObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newCtrl,
+                  obscureText: newObscure,
+                  decoration: InputDecoration(
+                    labelText: 'Password Baru',
+                    helperText: 'Minimal 6 karakter.',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_reset_outlined),
+                    suffixIcon: IconButton(
+                      onPressed: () => setDialogState(() => newObscure = !newObscure),
+                      icon: Icon(newObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmCtrl,
+                  obscureText: confirmObscure,
+                  decoration: InputDecoration(
+                    labelText: 'Konfirmasi Password Baru',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: () => setDialogState(() => confirmObscure = !confirmObscure),
+                      icon: Icon(confirmObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: saving ? null : () async {
+                      try {
+                        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Link reset password dikirim ke $email.'),
+                          backgroundColor: Colors.green,
+                        ));
+                      } on FirebaseAuthException catch (e) {
+                        if (!builderContext.mounted) return;
+                        ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text('Gagal mengirim email reset: ${e.message ?? e.code}')));
+                      }
+                    },
+                    child: const Text('Lupa password?'),
+                  ),
+                ),
+              ]),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.pop(dialogContext),
+                child: Text('Batal', style: TextStyle(color: secondaryTextColor)),
+              ),
+              ElevatedButton(
+                onPressed: saving ? null : () async {
+                  final oldPassword = oldCtrl.text;
+                  final newPassword = newCtrl.text;
+                  if (oldPassword.isEmpty) {
+                    ScaffoldMessenger.of(builderContext).showSnackBar(const SnackBar(content: Text('Masukkan password saat ini.')));
+                    return;
+                  }
+                  if (newPassword.length < 6) {
+                    ScaffoldMessenger.of(builderContext).showSnackBar(const SnackBar(content: Text('Password baru minimal 6 karakter.')));
+                    return;
+                  }
+                  if (newPassword != confirmCtrl.text) {
+                    ScaffoldMessenger.of(builderContext).showSnackBar(const SnackBar(content: Text('Konfirmasi password baru tidak cocok.')));
+                    return;
+                  }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Gagal mengirim link ubah kata sandi: ${e.message ?? e.code}',
-          ),
-        ),
-      );
+                  setDialogState(() => saving = true);
+                  try {
+                    final credential = EmailAuthProvider.credential(email: email, password: oldPassword);
+                    await user.reauthenticateWithCredential(credential);
+                    await user.updatePassword(newPassword);
+                    if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                  } on FirebaseAuthException catch (e) {
+                    if (!builderContext.mounted) return;
+                    setDialogState(() => saving = false);
+                    final message = switch (e.code) {
+                      'wrong-password' || 'invalid-credential' => 'Password saat ini salah.',
+                      'weak-password' => 'Password baru terlalu lemah. Gunakan minimal 6 karakter.',
+                      'requires-recent-login' => 'Silakan login ulang sebelum mengubah password.',
+                      _ => 'Gagal mengubah password: ${e.message ?? e.code}',
+                    };
+                    ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text(message)));
+                  } catch (e) {
+                    if (!builderContext.mounted) return;
+                    setDialogState(() => saving = false);
+                    ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text('Gagal mengubah password: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: saving
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan Password', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    oldCtrl.dispose();
+    newCtrl.dispose();
+    confirmCtrl.dispose();
+
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Password berhasil diubah.'),
+        backgroundColor: Colors.green,
+      ));
     }
   }
 
@@ -328,7 +635,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           content: const Text(
             'Data akun, tanaman, dan hasil pengukuran disimpan berdasarkan '
-            'akun Firebase yang sedang login. Data tersebut digunakan oleh '
+            'akun yang sedang login. Data tersebut digunakan oleh '
             'aplikasi CitriSoil Monitor untuk menampilkan dan mengelola data '
             'tanaman milik pengguna.',
           ),
@@ -475,11 +782,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           CircleAvatar(
                             radius: 48,
                             backgroundColor: primaryColor.withOpacity(0.15),
-                            child: Icon(
-                              Icons.person_rounded,
-                              size: 54,
-                              color: primaryColor,
-                            ),
+                            backgroundImage: profileImageData != null && profileImageData!.isNotEmpty
+                                ? MemoryImage(base64Decode(profileImageData!))
+                                : null,
+                            child: profileImageData == null || profileImageData!.isEmpty
+                                ? Icon(
+                                    Icons.person_rounded,
+                                    size: 54,
+                                    color: primaryColor,
+                                  )
+                                : null,
                           ),
                           GestureDetector(
                             onTap: _showEditProfileDialog,
