@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/soil_plot.dart';
 import 'models/soil_record.dart';
@@ -65,8 +66,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   final List<int> sessionMoisture = [];
   final List<double> sessionTemp = [];
 
-  final Color primaryTextColor = const Color(0xFF1E293B);
-  final Color secondaryTextColor = const Color(0xFF64748B);
+  Color get primaryTextColor =>
+      isDarkMode ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
+
+  Color get secondaryTextColor =>
+      isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+  Color get panelColor =>
+      isDarkMode ? const Color(0xFF111827) : Colors.white;
+
+  Color get panelSecondaryColor =>
+      isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+
+  // Preferensi tampilan
+  bool isDarkMode = false;
 
   // Data akun pengguna
   String profileName = 'Pengguna';

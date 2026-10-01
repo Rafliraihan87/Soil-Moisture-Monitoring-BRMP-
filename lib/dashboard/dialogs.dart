@@ -2,157 +2,421 @@ part of '../dashboard.dart';
 
 extension _DashboardDialogs on _DashboardScreenState {
   void _showSettingsModal() {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        builder: (context) {
-          return BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(32),
-                  topRight: Radius.circular(32),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        bool modalDarkMode = isDarkMode;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final darkMode = modalDarkMode;
+            final sheetColor = darkMode
+                ? const Color(0xFF111827)
+                : Colors.white;
+            final textColor = darkMode
+                ? const Color(0xFFF1F5F9)
+                : const Color(0xFF1E293B);
+            final secondaryColor = darkMode
+                ? const Color(0xFF94A3B8)
+                : const Color(0xFF64748B);
+
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: sheetColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: darkMode
+                              ? const Color(0xFF475569)
+                              : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Pengaturan & Pengguna',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // CARD PROFIL PENGGUNA - DINAMIS DARI FIREBASE
+                    Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: darkMode
+                              ? const Color(0xFF1E3A8A)
+                              : const Color(0xFFE0E7FF),
+                          child: isLoadingProfile
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(
+                                  Icons.person_rounded,
+                                  color: Color(0xFF4A72EC),
+                                ),
+                        ),
+                        title: Text(
+                          profileName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: textColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          isLoadingProfile
+                              ? 'Memuat data akun...'
+                              : profileEmail,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: secondaryColor,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right_rounded,
+                          color: secondaryColor,
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileScreen(),
+                            ),
+                          ).then((_) => _loadUserProfile());
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+                    Divider(
+                      color: darkMode
+                          ? const Color(0xFF334155)
+                          : Colors.grey.shade300,
+                    ),
+
+                    // DARK MODE
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: darkMode
+                            ? const Color(0xFF312E81)
+                            : const Color(0xFFF1F5F9),
+                        child: Icon(
+                          darkMode
+                              ? Icons.dark_mode_rounded
+                              : Icons.light_mode_rounded,
+                          color: darkMode
+                              ? const Color(0xFFC4B5FD)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                      title: Text(
+                        'Mode Gelap',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: textColor,
+                        ),
+                      ),
+                      subtitle: Text(
+                        darkMode ? 'Tampilan gelap aktif' : 'Tampilan terang aktif',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: secondaryColor,
+                        ),
+                      ),
+                      trailing: Switch.adaptive(
+                        value: darkMode,
+                        activeColor: const Color(0xFF4A72EC),
+                        onChanged: (value) {
+                          setModalState(() {
+                            modalDarkMode = value;
+                          });
+                          _setDarkMode(value);
+                        },
+                      ),
+                    ),
+
+                    const Divider(height: 20),
+
+                    // SINKRONISASI DATA
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _getPendingRecords(),
+                      builder: (context, snapshot) {
+                        final pendingCount = snapshot.data?.length ?? 0;
+
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: darkMode
+                                ? const Color(0xFF064E3B)
+                                : const Color(0xFFECFDF5),
+                            child: Icon(
+                              Icons.cloud_sync_rounded,
+                              color: darkMode
+                                  ? const Color(0xFF6EE7B7)
+                                  : const Color(0xFF10B981),
+                            ),
+                          ),
+                          title: Text(
+                            'Sinkronisasi Data',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                              color: textColor,
+                            ),
+                          ),
+                          subtitle: Text(
+                            snapshot.connectionState == ConnectionState.waiting
+                                ? 'Memeriksa data lokal...'
+                                : pendingCount > 0
+                                    ? '$pendingCount data menunggu disinkronkan'
+                                    : 'Semua data sudah tersinkronisasi',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: secondaryColor,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            color: secondaryColor,
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showSyncDataDialog();
+                          },
+                        );
+                      },
+                    ),
+
+                    const Divider(height: 20),
+
+                    // INFO HARDWARE
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: darkMode
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFF1F5F9),
+                        child: Icon(
+                          Icons.memory_rounded,
+                          color: darkMode
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                      title: Text(
+                        'Informasi Perangkat',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: textColor,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'CitriSoil Handheld (ESP32 FireBeetle)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: secondaryColor,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // TOMBOL LOGOUT
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showLogoutConfirmDialog();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        label: const Text(
+                          'Keluar (Logout)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                 ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSyncDataDialog() async {
+    final pending = await _getPendingRecords();
+    if (!mounted) return;
+
+    bool isSyncing = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: panelColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                  Icon(
+                    Icons.cloud_sync_rounded,
+                    color: const Color(0xFF10B981),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Sinkronisasi Data',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      color: primaryTextColor,
+                    ),
+                  ),
+                ],
+              ),
+              content: pending.isEmpty
+                  ? Text(
+                      'Tidak ada data lokal yang perlu disinkronkan.\n\nSemua data pengukuran sudah tersimpan di database.',
+                      style: TextStyle(color: secondaryTextColor),
+                    )
+                  : Text(
+                      'Terdapat ${pending.length} data pengukuran yang belum tersimpan ke database.\n\nSinkronkan sekarang untuk mengirim data tersebut ke Firebase?',
+                      style: TextStyle(color: secondaryTextColor),
+                    ),
+              actions: [
+                TextButton(
+                  onPressed: isSyncing
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: Text(
+                    'Tutup',
+                    style: TextStyle(
+                      color: secondaryTextColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (pending.isNotEmpty)
+                  ElevatedButton.icon(
+                    onPressed: isSyncing
+                        ? null
+                        : () async {
+                            setDialogState(() => isSyncing = true);
+                            try {
+                              final syncedCount =
+                                  await _measurementService.syncPendingRecords();
+                              final remaining =
+                                  await _measurementService.getPendingRecords();
+
+                              if (!mounted) return;
+
+                              setDialogState(() => isSyncing = false);
+                              Navigator.pop(dialogContext);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    syncedCount > 0
+                                        ? '$syncedCount data berhasil disinkronkan${remaining.isNotEmpty ? '. ${remaining.length} data masih menunggu koneksi.' : '.'}'
+                                        : 'Belum ada data yang berhasil disinkronkan. Periksa koneksi internet.',
+                                  ),
+                                  backgroundColor: syncedCount > 0
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            } catch (_) {
+                              if (!mounted) return;
+                              setDialogState(() => isSyncing = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Sinkronisasi gagal. Periksa koneksi internet dan coba lagi.',
+                                  ),
+                                  backgroundColor: Color(0xFFEF4444),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
+                    icon: isSyncing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.sync_rounded, size: 18),
+                    label: Text(isSyncing ? 'Menyinkronkan...' : 'Sinkronkan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Pengaturan & Pengguna',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryTextColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-  
-                  // CARD PROFIL PENGGUNA - DINAMIS DARI FIREBASE
-                  Material(
-                    color: Colors.transparent,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: const Color(0xFFE0E7FF),
-                        child: isLoadingProfile
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(
-                                Icons.person_rounded,
-                                color: Color(0xFF4A72EC),
-                              ),
-                      ),
-                      title: Text(
-                        profileName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        isLoadingProfile
-                            ? 'Memuat data akun...'
-                            : profileEmail,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: const Icon(
-  Icons.chevron_right_rounded,
-),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfileScreen(),
-                          ),
-                        ).then((_) => _loadUserProfile());
-                      },
-                    ),
-                  ),
-  
-                  const SizedBox(height: 12),
-                  const Divider(),
-  
-                  // INFO HARDWARE
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(
-                      backgroundColor: Color(0xFFF1F5F9),
-                      child: Icon(Icons.memory_rounded, color: Color(0xFF64748B)),
-                    ),
-                    title: const Text(
-                      'Informasi Perangkat',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    subtitle: const Text(
-                      'CitriSoil Handheld (ESP32 FireBeetle)',
-                      style: TextStyle(fontSize: 11.5),
-                    ),
-                  ),
-  
-                  const Divider(height: 20),
-  
-                  // TOMBOL LOGOUT
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showLogoutConfirmDialog();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.logout_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      label: const Text(
-                        'Keluar (Logout)',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    }
-  
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
     // Dialog Konfirmasi Logout
 
   void _showLogoutConfirmDialog() {
@@ -162,22 +426,23 @@ extension _DashboardDialogs on _DashboardScreenState {
           return BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: AlertDialog(
-              backgroundColor: Colors.white,
+              backgroundColor: panelColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
-                  SizedBox(width: 10),
+                  const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
+                  const SizedBox(width: 10),
                   Text(
                     'Konfirmasi Keluar',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: primaryTextColor),
                   ),
                 ],
               ),
-              content: const Text(
+              content: Text(
                 'Apakah Anda yakin ingin keluar dari aplikasi CitriSoil Monitor?',
+                style: TextStyle(color: secondaryTextColor),
               ),
               actions: [
                 TextButton(

@@ -171,7 +171,7 @@ extension _DashboardUi on _DashboardScreenState {
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.94),
+                      color: panelColor.withOpacity(0.94),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(42),
                         topRight: Radius.circular(42),
@@ -263,7 +263,7 @@ extension _DashboardUi on _DashboardScreenState {
                               height: 60,
                               margin: const EdgeInsets.only(bottom: 14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: panelColor,
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
@@ -507,7 +507,7 @@ extension _DashboardUi on _DashboardScreenState {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: panelColor,
                                 borderRadius: BorderRadius.circular(22),
                                 boxShadow: [
                                   BoxShadow(
@@ -580,7 +580,7 @@ extension _DashboardUi on _DashboardScreenState {
                                       vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: panelColor,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
@@ -632,7 +632,7 @@ extension _DashboardUi on _DashboardScreenState {
                                       vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: panelColor,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
@@ -724,7 +724,7 @@ extension _DashboardUi on _DashboardScreenState {
     }) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: panelColor,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
