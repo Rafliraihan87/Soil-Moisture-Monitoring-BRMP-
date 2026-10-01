@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dashboard.dart';
 
@@ -18,6 +19,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool isPasswordVisible = false;
   bool isConfirmPasswordVisible = false;
   bool isLoading = false;
+  bool staySignedIn = false;
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -28,6 +30,36 @@ class _AuthScreenState extends State<AuthScreen> {
   final Color secondaryTextColor = const Color(0xFF64748B);
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginSession();
+  }
+
+  Future<void> _checkLoginSession() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final shouldStaySignedIn = prefs.getBool('stay_signed_in') ?? false;
+
+    final user = _auth.currentUser;
+
+    if (!shouldStaySignedIn && user != null) {
+      await _auth.signOut();
+      return;
+    }
+
+    if (shouldStaySignedIn && user != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -77,6 +109,10 @@ class _AuthScreenState extends State<AuthScreen> {
           email: email,
           password: password,
         );
+
+        final prefs = await SharedPreferences.getInstance();
+
+        await prefs.setBool('stay_signed_in', staySignedIn);
       } else {
         // =========================
         // REGISTER FIREBASE
@@ -94,9 +130,9 @@ class _AuthScreenState extends State<AuthScreen> {
               .collection('users')
               .doc(user.uid)
               .set({
-            'email': user.email,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+                'email': user.email,
+                'createdAt': FieldValue.serverTimestamp(),
+              });
         }
       }
 
@@ -106,9 +142,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const DashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -163,17 +197,13 @@ class _AuthScreenState extends State<AuthScreen> {
   // =========================================================
 
   void _showForgotPasswordDialog() {
-    final TextEditingController resetEmailController =
-        TextEditingController();
+    final TextEditingController resetEmailController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: 8,
-            sigmaY: 8,
-          ),
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: AlertDialog(
             backgroundColor: Colors.white.withOpacity(0.95),
             shape: RoundedRectangleBorder(
@@ -189,10 +219,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 SizedBox(width: 8),
                 Text(
                   'Reset Password',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 17,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                 ),
               ],
             ),
@@ -202,10 +229,7 @@ class _AuthScreenState extends State<AuthScreen> {
               children: [
                 Text(
                   'Masukkan email yang terdaftar untuk menerima link reset kata sandi.',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: secondaryTextColor,
-                  ),
+                  style: TextStyle(fontSize: 12.5, color: secondaryTextColor),
                 ),
                 const SizedBox(height: 14),
                 Container(
@@ -213,27 +237,19 @@ class _AuthScreenState extends State<AuthScreen> {
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.grey.shade300,
-                    ),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: TextField(
                     controller: resetEmailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: TextStyle(
-                      color: primaryTextColor,
-                      fontSize: 13.5,
-                    ),
+                    style: TextStyle(color: primaryTextColor, fontSize: 13.5),
                     decoration: InputDecoration(
                       hintText: 'Email',
                       hintStyle: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 13,
                       ),
-                      prefixIcon: const Icon(
-                        Icons.email_outlined,
-                        size: 20,
-                      ),
+                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -267,25 +283,19 @@ class _AuthScreenState extends State<AuthScreen> {
                   }
 
                   try {
-                    await _auth.sendPasswordResetEmail(
-                      email: email,
-                    );
+                    await _auth.sendPasswordResetEmail(email: email);
 
                     if (!mounted) return;
 
                     Navigator.pop(dialogContext);
 
-                    _showMessage(
-                      'Link reset password telah dikirim ke email.',
-                    );
+                    _showMessage('Link reset password telah dikirim ke email.');
                   } on FirebaseAuthException catch (e) {
                     if (!mounted) return;
 
                     Navigator.pop(dialogContext);
 
-                    _showMessage(
-                      _getFirebaseErrorMessage(e.code),
-                    );
+                    _showMessage(_getFirebaseErrorMessage(e.code));
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -320,10 +330,7 @@ class _AuthScreenState extends State<AuthScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -348,23 +355,14 @@ class _AuthScreenState extends State<AuthScreen> {
 
             Positioned.fill(
               child: ImageFiltered(
-                imageFilter: ImageFilter.blur(
-                  sigmaX: 1.5,
-                  sigmaY: 1.5,
-                ),
+                imageFilter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
                 child: Image.asset(
                   'assets/bg_orange.png',
                   width: double.infinity,
                   height: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (
-                    context,
-                    error,
-                    stackTrace,
-                  ) {
-                    return Container(
-                      color: const Color(0xFFEAB308),
-                    );
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(color: const Color(0xFFEAB308));
                   },
                 ),
               ),
@@ -373,7 +371,6 @@ class _AuthScreenState extends State<AuthScreen> {
             // =================================================
             // FORM PANEL
             // =================================================
-
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
@@ -399,27 +396,21 @@ class _AuthScreenState extends State<AuthScreen> {
                     topRight: Radius.circular(42),
                   ),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: 16,
-                      sigmaY: 16,
-                    ),
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 28,
                         vertical: 24,
                       ),
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // =================================================
                           // TITLE
                           // =================================================
 
                           Text(
-                            isLogin
-                                ? 'Welcome Back!'
-                                : 'Create Account',
+                            isLogin ? 'Welcome Back!' : 'Create Account',
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
@@ -446,13 +437,11 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // EMAIL
                           // =================================================
-
                           _buildInputField(
                             label: 'Email',
                             controller: emailController,
                             hint: 'nama@email.com',
-                            prefixIcon:
-                                Icons.email_outlined,
+                            prefixIcon: Icons.email_outlined,
                           ),
 
                           const SizedBox(height: 14),
@@ -460,7 +449,6 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // PASSWORD
                           // =================================================
-
                           _buildInputField(
                             label: 'Password',
                             controller: passwordController,
@@ -470,8 +458,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             isVisible: isPasswordVisible,
                             onToggleVisibility: () {
                               setState(() {
-                                isPasswordVisible =
-                                    !isPasswordVisible;
+                                isPasswordVisible = !isPasswordVisible;
                               });
                             },
                           ),
@@ -479,19 +466,15 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // CONFIRM PASSWORD
                           // =================================================
-
                           if (!isLogin) ...[
                             const SizedBox(height: 14),
                             _buildInputField(
                               label: 'Konfirmasi Password',
-                              controller:
-                                  confirmPasswordController,
+                              controller: confirmPasswordController,
                               hint: '••••••••',
-                              prefixIcon:
-                                  Icons.lock_outline_rounded,
+                              prefixIcon: Icons.lock_outline_rounded,
                               isPassword: true,
-                              isVisible:
-                                  isConfirmPasswordVisible,
+                              isVisible: isConfirmPasswordVisible,
                               onToggleVisibility: () {
                                 setState(() {
                                   isConfirmPasswordVisible =
@@ -504,35 +487,65 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // FORGOT PASSWORD
                           // =================================================
-
                           if (isLogin) ...[
-                            Align(
-                              alignment:
-                                  Alignment.centerRight,
-                              child: TextButton(
-                                onPressed:
-                                    _showForgotPasswordDialog,
-                                style: TextButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize
-                                          .shrinkWrap,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Checkbox(
+                                      value: staySignedIn,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          staySignedIn = value ?? false;
+                                        });
+                                      },
+                                      activeColor: const Color(0xFF4A72EC),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          staySignedIn = !staySignedIn;
+                                        });
+                                      },
+                                      child: Text(
+                                        'Stay signed in',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  'Forgot Password?',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        secondaryTextColor,
+
+                                TextButton(
+                                  onPressed: _showForgotPasswordDialog,
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(
+                                    'Forgot Password?',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: secondaryTextColor,
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
+
                             const SizedBox(height: 16),
                           ] else
                             const SizedBox(height: 20),
@@ -540,21 +553,16 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // BUTTON
                           // =================================================
-
                           Container(
                             width: double.infinity,
                             height: 48,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF4A72EC),
-                                  Color(0xFF38BDF8),
-                                ],
+                                colors: [Color(0xFF4A72EC), Color(0xFF38BDF8)],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               ),
-                              borderRadius:
-                                  BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFF4A72EC)
@@ -565,35 +573,28 @@ class _AuthScreenState extends State<AuthScreen> {
                               ],
                             ),
                             child: ElevatedButton(
-                              onPressed:
-                                  isLoading ? null : _handleAuth,
+                              onPressed: isLoading ? null : _handleAuth,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Colors.transparent,
+                                backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(24),
+                                  borderRadius: BorderRadius.circular(24),
                                 ),
                               ),
                               child: isLoading
                                   ? const SizedBox(
                                       width: 22,
                                       height: 22,
-                                      child:
-                                          CircularProgressIndicator(
+                                      child: CircularProgressIndicator(
                                         strokeWidth: 2.5,
                                         color: Colors.white,
                                       ),
                                     )
                                   : Text(
-                                      isLogin
-                                          ? 'Sign in'
-                                          : 'Daftar Sekarang',
+                                      isLogin ? 'Sign in' : 'Daftar Sekarang',
                                       style: const TextStyle(
                                         fontSize: 16,
-                                        fontWeight:
-                                            FontWeight.bold,
+                                        fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                       ),
                                     ),
@@ -605,10 +606,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // TOGGLE LOGIN / REGISTER
                           // =================================================
-
                           Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 isLogin
@@ -625,8 +624,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   setState(() {
                                     isLogin = !isLogin;
                                     passwordController.clear();
-                                    confirmPasswordController
-                                        .clear();
+                                    confirmPasswordController.clear();
                                   });
                                 },
                                 child: Text(
@@ -646,35 +644,29 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // DIVIDER
                           // =================================================
-
                           Row(
                             children: [
                               Expanded(
                                 child: Divider(
-                                  color: secondaryTextColor
-                                      .withOpacity(0.25),
+                                  color: secondaryTextColor.withOpacity(0.25),
                                 ),
                               ),
                               Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(
+                                padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
                                 ),
                                 child: Text(
                                   'Official App',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color:
-                                        secondaryTextColor,
-                                    fontWeight:
-                                        FontWeight.w500,
+                                    color: secondaryTextColor,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                               Expanded(
                                 child: Divider(
-                                  color: secondaryTextColor
-                                      .withOpacity(0.25),
+                                  color: secondaryTextColor.withOpacity(0.25),
                                 ),
                               ),
                             ],
@@ -685,17 +677,12 @@ class _AuthScreenState extends State<AuthScreen> {
                           // =================================================
                           // LOGO
                           // =================================================
-
                           Center(
                             child: Image.asset(
                               'assets/logo_kementan.webp',
                               height: 60,
                               fit: BoxFit.contain,
-                              errorBuilder: (
-                                context,
-                                error,
-                                stackTrace,
-                              ) {
+                              errorBuilder: (context, error, stackTrace) {
                                 return const Icon(
                                   Icons.agriculture_rounded,
                                   color: Colors.green,
@@ -762,17 +749,12 @@ class _AuthScreenState extends State<AuthScreen> {
             keyboardType: isPassword
                 ? TextInputType.text
                 : TextInputType.emailAddress,
-            obscureText:
-                isPassword ? !isVisible : false,
-            style: TextStyle(
-              color: primaryTextColor,
-              fontSize: 14,
-            ),
+            obscureText: isPassword ? !isVisible : false,
+            style: TextStyle(color: primaryTextColor, fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(
-                color:
-                    secondaryTextColor.withOpacity(0.5),
+                color: secondaryTextColor.withOpacity(0.5),
                 fontSize: 13.5,
               ),
               prefixIcon: Icon(
@@ -793,8 +775,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     )
                   : null,
               border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 12,
               ),
