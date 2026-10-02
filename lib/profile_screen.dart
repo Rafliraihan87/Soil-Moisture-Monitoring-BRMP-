@@ -833,6 +833,274 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _showDeviceInfoDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.memory_rounded,
+                  color: primaryColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Informasi Perangkat',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: primaryTextColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // NAMA PROYEK
+                  Text(
+                    'CitriSoil Handheld',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    'Perangkat IoT untuk membantu melakukan pengukuran '
+                    'kondisi tanah secara praktis dan digital.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // TUJUAN
+                  _buildInfoSection(
+                    icon: Icons.flag_outlined,
+                    title: 'Tujuan Proyek',
+                    content:
+                        'CitriSoil Handheld dirancang untuk membantu pengguna '
+                        'melakukan pengukuran kondisi tanah secara lebih praktis, '
+                        'cepat, dan terukur menggunakan perangkat IoT.',
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // MANFAAT
+                  _buildInfoSection(
+                    icon: Icons.eco_outlined,
+                    title: 'Manfaat',
+                    content:
+                        'Perangkat membantu mengurangi pencatatan manual, '
+                        'mempermudah proses pengukuran kondisi tanah, serta '
+                        'memungkinkan hasil pengukuran ditampilkan dan dikelola '
+                        'secara digital.',
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // PERALATAN
+                  Text(
+                    'Peralatan IoT',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: primaryTextColor,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  _buildDeviceItem(
+                    icon: Icons.memory_rounded,
+                    name: 'ESP32 FireBeetle',
+                    description:
+                        'Mikrokontroler utama yang mengendalikan proses '
+                        'pembacaan sensor dan komunikasi perangkat.',
+                  ),
+
+                  _buildDeviceItem(
+                    icon: Icons.sensors_outlined,
+                    name: 'Sensor Tanah RS485',
+                    description:
+                        'Digunakan untuk membaca parameter kondisi tanah '
+                        'seperti suhu dan kelembapan.',
+                  ),
+
+                  _buildDeviceItem(
+                    icon: Icons.swap_horiz_rounded,
+                    name: 'Modul Komunikasi RS485',
+                    description:
+                        'Digunakan sebagai media komunikasi antara ESP32 '
+                        'dan sensor tanah.',
+                  ),
+
+                  _buildDeviceItem(
+                    icon: Icons.smart_display_outlined,
+                    name: 'OLED Display',
+                    description:
+                        'Menampilkan informasi atau hasil pengukuran '
+                        'langsung pada perangkat.',
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  Text(
+                    'Sistem ini menggabungkan mikrokontroler, sensor, dan '
+                    'komunikasi data untuk menghasilkan perangkat pengukuran '
+                    'tanah yang dapat digunakan secara handheld.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Tutup',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoSection({
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: primaryColor.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 19, color: primaryColor),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: primaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                content,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: secondaryTextColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeviceItem({
+    required IconData icon,
+    required String name,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 20, color: primaryColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: primaryTextColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.4,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showLogoutDialog() async {
     await showDialog<void>(
       context: context,
@@ -1077,9 +1345,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         children: [
                           _buildSettingTile(
-                            icon: Icons.person_outline_rounded,
-                            title: 'Edit Informasi Profil',
-                            onTap: _showEditProfileDialog,
+                            icon: Icons.shield_outlined,
+                            title: 'Kebijakan Privasi Data',
+                            onTap: _showPrivacyDialog,
+                          ),
+
+                          const Divider(height: 1, indent: 50),
+
+                          _buildSettingTile(
+                            icon: Icons.memory_rounded,
+                            title: 'Informasi Perangkat',
+                            onTap: _showDeviceInfoDialog,
                           ),
                           const Divider(height: 1, indent: 50),
                           _buildSettingTile(
