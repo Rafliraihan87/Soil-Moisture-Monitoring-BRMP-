@@ -1191,15 +1191,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          'Profil Pengguna',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
         backgroundColor: Colors.white,
         foregroundColor: primaryTextColor,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Profil Pengguna',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Pengaturan & Pengguna',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: secondaryTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 14,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+                const Text(
+                  'Profil',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF4A72EC),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+
       body: RefreshIndicator(
         onRefresh: _loadProfile,
         child: SingleChildScrollView(
