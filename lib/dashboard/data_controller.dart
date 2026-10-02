@@ -75,24 +75,58 @@ extension _DashboardDataController on _DashboardScreenState {
     }
 
   Future<void> _syncPendingRecords() async {
-      try {
-        final syncedCount = await _measurementService.syncPendingRecords();
-  
-        if (syncedCount > 0 && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '$syncedCount data offline berhasil disinkronkan ke database.',
-              ),
-              backgroundColor: const Color(0xFF00C828),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+    if (isSyncing) return;
+
+    try {
+      // Simpan snapshot pending sebelum sinkronisasi agar record lokal yang
+      // berhasil dikirim bisa ditandai isSynced=true pada UI saat ini juga.
+      final pendingBefore = await _getPendingRecords();
+      if (pendingBefore.isEmpty) return;
+
+      final syncedCount = await _measurementService.syncPendingRecords();
+      if (syncedCount <= 0) return;
+
+      for (final item in pendingBefore) {
+        final plantId = item['plantId'] as String?;
+        final timestamp = DateTime.tryParse(
+          item['timestamp'] as String? ?? '',
+        );
+        if (plantId == null || timestamp == null) continue;
+
+        final plotIndex = plots.indexWhere((p) => p.id == plantId);
+        if (plotIndex == -1) continue;
+
+        for (final record in plots[plotIndex].records) {
+          final sameTimestamp =
+              record.timestamp.isAtSameMomentAs(timestamp);
+          final sameMoisture =
+              record.avgMoisture == (item['avgMoisture'] as num?)?.toInt();
+          final sameTemp =
+              record.avgTemp == (item['avgTemp'] as num?)?.toDouble();
+
+          if (sameTimestamp && sameMoisture && sameTemp) {
+            record.isSynced = true;
+          }
         }
-      } catch (_) {
-        // Akan dicoba lagi pada polling berikutnya.
       }
+
+      if (mounted) {
+        setState(() {});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$syncedCount data offline berhasil disinkronkan ke database.',
+            ),
+            backgroundColor: const Color(0xFF00C828),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      // Akan dicoba lagi pada polling berikutnya.
     }
+  }
 
   Future<void> _fetchSensorData() async {
       if (isFetching) return;

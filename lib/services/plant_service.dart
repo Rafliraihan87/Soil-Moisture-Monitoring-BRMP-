@@ -50,12 +50,14 @@ class PlantService {
             timestamp = DateTime.now();
           }
 
+          // Semua record yang dibaca dari Firebase sudah tersimpan di server.
           records.add(
             SoilRecord(
               testNumber: i + 1,
               avgMoisture: (measurement['moisture'] as num?)?.toInt() ?? 0,
               avgTemp: (measurement['temperature'] as num?)?.toDouble() ?? 0,
               timestamp: timestamp,
+              isSynced: true,
             ),
           );
         }
@@ -103,7 +105,6 @@ class PlantService {
     final measurements =
         await plantRef.collection('measurements').limit(450).get();
 
-    // Delete measurements in chunks so a plant with many records is safe.
     var docs = measurements.docs;
     while (docs.isNotEmpty) {
       final batch = _firestore.batch();

@@ -51,6 +51,17 @@ class MeasurementService {
   }) async {
     final pending = await getPendingRecords();
 
+    // Jangan membuat pending duplikat jika proses penyimpanan dipanggil lagi.
+    final alreadyPending = pending.any((item) {
+      if (item['plantId'] != plantId) return false;
+      final existingTimestamp = DateTime.tryParse(
+        item['timestamp'] as String? ?? '',
+      );
+      return existingTimestamp?.isAtSameMomentAs(timestamp) == true;
+    });
+
+    if (alreadyPending) return;
+
     pending.add({
       'plantId': plantId,
       'plantName': plantName,
@@ -71,13 +82,31 @@ class MeasurementService {
     final user = _auth.currentUser;
     if (user == null) throw StateError('User belum login.');
 
-    await _firestore
+    final measurements = _firestore
         .collection('users')
         .doc(user.uid)
         .collection('plants')
         .doc(plantId)
-        .collection('measurements')
-        .add({
+        .collection('measurements');
+
+    // Cegah satu pengukuran masuk dua kali, terutama saat sinkronisasi
+    // pending setelah perangkat sempat kehilangan koneksi.
+    final sameTimestamp = await measurements
+        .where('timestamp', isEqualTo: Timestamp.fromDate(timestamp))
+        .get();
+
+    final duplicate = sameTimestamp.docs.any((doc) {
+      final data = doc.data();
+      final storedMoisture = (data['moisture'] as num?)?.toInt();
+      final storedTemperature = (data['temperature'] as num?)?.toDouble();
+
+      return storedMoisture == moisture &&
+          storedTemperature == temperature;
+    });
+
+    if (duplicate) return;
+
+    await measurements.add({
       'moisture': moisture,
       'temperature': temperature,
       'timestamp': Timestamp.fromDate(timestamp),
