@@ -778,106 +778,233 @@ extension _DashboardDialogs on _DashboardScreenState {
   
     // Modal Durasi Pengukuran
 
-  void _showDurationPickerModal() {
-      int selectedMinutes = 2;
+  // Modal Durasi Pengukuran (Updated)
+void _showDurationPickerModal() {
+  int selectedMinutes = 2; // Default 2 Menit (untuk opsi preset)
+  bool isCustomMode = false;
   
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setModalState) {
-              return BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
+  // Variabel untuk Waktu Custom
+  int customValue = 30; // Default nilai custom
+  String customUnit = 'Detik'; // 'Detik' atau 'Menit'
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setModalState) {
+          return BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Pilih Durasi Pengukuran',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: primaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Plot sasaran: ${plots[selectedPlotIndex].name}',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: secondaryTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [1, 2, 3, 5].map((mins) {
-                          final isSel = selectedMinutes == mins;
-                          return ChoiceChip(
-                            label: Text('$mins Menit'),
-                            selected: isSel,
+                  const SizedBox(height: 18),
+                  Text(
+                    'Pilih Durasi Pengukuran',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: primaryTextColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Plot sasaran: ${plots[selectedPlotIndex].name}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // ROW PILIHAN DURASI (1, 2, 3 MENIT & CUSTOM)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ...[1, 2, 3].map((mins) {
+                          final isSel = !isCustomMode && selectedMinutes == mins;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                            child: ChoiceChip(
+                              label: Text('$mins Menit'),
+                              selected: isSel,
+                              selectedColor: const Color(0xFF4A72EC),
+                              labelStyle: TextStyle(
+                                color: isSel ? Colors.white : primaryTextColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              onSelected: (val) {
+                                if (val) {
+                                  setModalState(() {
+                                    isCustomMode = false;
+                                    selectedMinutes = mins;
+                                  });
+                                }
+                              },
+                            ),
+                          );
+                        }),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: ChoiceChip(
+                            label: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.tune_rounded, size: 16),
+                                SizedBox(width: 4),
+                                Text('Custom'),
+                              ],
+                            ),
+                            selected: isCustomMode,
                             selectedColor: const Color(0xFF4A72EC),
                             labelStyle: TextStyle(
-                              color: isSel ? Colors.white : primaryTextColor,
+                              color: isCustomMode ? Colors.white : primaryTextColor,
                               fontWeight: FontWeight.bold,
                             ),
                             onSelected: (val) {
-                              if (val)
-                                setModalState(() => selectedMinutes = mins);
+                              if (val) {
+                                setModalState(() {
+                                  isCustomMode = true;
+                                });
+                              }
                             },
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _startMeasuringSession(selectedMinutes * 60);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4A72EC),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          child: const Text(
-                            'Mulai Sekarang',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+
+                  // TAMPILAN JIKA PILIHAN CUSTOM AKTIF
+                  if (isCustomMode) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          // INPUT JUMLAH ANGKA WAKTU
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: customValue.toString(),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Nilai Waktu',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (val) {
+                                final parsed = int.tryParse(val);
+                                if (parsed != null && parsed > 0) {
+                                  customValue = parsed;
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          
+                          // DROPDOWN DETIK / MENIT
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: customUnit,
+                              items: ['Detik', 'Menit'].map((String unit) {
+                                return DropdownMenuItem<String>(
+                                  value: unit,
+                                  child: Text(
+                                    unit,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF4A72EC),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (newUnit) {
+                                if (newUnit != null) {
+                                  setModalState(() {
+                                    customUnit = newUnit;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+                  
+                  // TOMBOL MULAI
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        int totalSeconds;
+                        if (isCustomMode) {
+                          totalSeconds = customUnit == 'Detik'
+                              ? customValue
+                              : customValue * 60;
+                        } else {
+                          totalSeconds = selectedMinutes * 60;
+                        }
+
+                        if (totalSeconds <= 0) return;
+
+                        Navigator.pop(context);
+                        _startMeasuringSession(totalSeconds);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4A72EC),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text(
+                        'Mulai Sekarang',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       );
-    }
+       },
+  );
+}
+
 }
