@@ -1,6 +1,81 @@
 part of '../dashboard.dart';
 
 extension _DashboardUi on _DashboardScreenState {
+  
+  Color _getMoistureColor() {
+    if (!isConnectedToESP) {
+      return Colors.grey;
+    }
+
+    if (moistureValue <= 20) {
+      return const Color(0xFFEF4444);
+    } else if (moistureValue <= 40) {
+      return const Color(0xFFF59E0B);
+    } else if (moistureValue <= 70) {
+      return const Color(0xFF10B981);
+    } else if (moistureValue <= 85) {
+      return const Color(0xFF3B82F6);
+    } else {
+      return const Color(0xFF8B5CF6);
+    }
+  }
+
+  String _getMoistureStatus() {
+    if (!isConnectedToESP) {
+      return 'Menunggu data';
+    }
+
+    if (moistureValue <= 20) {
+      return 'Sangat kering';
+    } else if (moistureValue <= 40) {
+      return 'Kering';
+    } else if (moistureValue <= 70) {
+      return 'Kondisi baik';
+    } else if (moistureValue <= 85) {
+      return 'Lembap';
+    } else {
+      return 'Sangat lembap';
+    }
+  }
+
+    Color _getTemperatureColor() {
+    if (!isConnectedToESP) {
+      return Colors.grey;
+    }
+
+    if (tempValue < 15) {
+      return const Color(0xFF3B82F6);
+    } else if (tempValue < 25) {
+      return const Color(0xFF06B6D4);
+    } else if (tempValue <= 32) {
+      return const Color(0xFF10B981);
+    } else if (tempValue <= 38) {
+      return const Color(0xFFF59E0B);
+    } else {
+      return const Color(0xFFEF4444);
+    }
+  }
+
+  String _getTemperatureStatus() {
+    if (!isConnectedToESP) {
+      return 'Menunggu data';
+    }
+
+    if (tempValue < 15) {
+      return 'Sangat dingin';
+    } else if (tempValue < 25) {
+      return 'Dingin';
+    } else if (tempValue <= 32) {
+      return 'Kondisi baik';
+    } else if (tempValue <= 38) {
+      return 'Panas';
+    } else {
+      return 'Sangat panas';
+    }
+  }
+
+
+
   Widget _buildPersistentSyncAlert() {
     final count = pendingUploadCount;
     if (count == 0) return const SizedBox.shrink();
@@ -36,10 +111,7 @@ extension _DashboardUi on _DashboardScreenState {
                 const SizedBox(height: 3),
                 Text(
                   'Koneksi internet tersedia. Siap diunggah.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.orange.shade800,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
                 ),
               ],
             ),
@@ -68,10 +140,7 @@ extension _DashboardUi on _DashboardScreenState {
                   ),
                   child: const Text(
                     'Unggah',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
         ],
@@ -84,11 +153,7 @@ extension _DashboardUi on _DashboardScreenState {
     final screenWidth = MediaQuery.of(context).size.width;
 
     if (isLoadingPlants) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Dashboard tetap tampil walaupun belum ada tanaman.
@@ -123,27 +188,22 @@ extension _DashboardUi on _DashboardScreenState {
                 fit: StackFit.expand,
                 children: [
                   ImageFiltered(
-                    imageFilter: ImageFilter.blur(
-                      sigmaX: 1.5,
-                      sigmaY: 1.5,
-                    ),
+                    imageFilter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
                     child: hasImage
                         ? Image.memory(
                             base64Decode(currentPlot.imageData!),
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 Image.asset(
-                              'assets/bg_orange.png',
-                              fit: BoxFit.cover,
-                            ),
+                                  'assets/bg_orange.png',
+                                  fit: BoxFit.cover,
+                                ),
                           )
                         : Image.asset(
                             'assets/bg_orange.png',
                             fit: BoxFit.cover,
-                            errorBuilder:
-                                (context, error, stackTrace) => Container(
-                              color: const Color(0xFFEAB308),
-                            ),
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(color: const Color(0xFFEAB308)),
                           ),
                   ),
                   Container(
@@ -183,10 +243,7 @@ extension _DashboardUi on _DashboardScreenState {
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
                             shadows: [
-                              Shadow(
-                                color: Colors.black38,
-                                blurRadius: 6,
-                              ),
+                              Shadow(color: Colors.black38, blurRadius: 6),
                             ],
                           ),
                         ),
@@ -204,10 +261,7 @@ extension _DashboardUi on _DashboardScreenState {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Text(
-                              '',
-                              style: TextStyle(fontSize: 0),
-                            ),
+                            const Text('', style: TextStyle(fontSize: 0)),
                             Text(
                               isConnectedToESP
                                   ? 'WiFi Terhubung'
@@ -280,13 +334,9 @@ extension _DashboardUi on _DashboardScreenState {
                         topRight: Radius.circular(42),
                       ),
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(
-                          sigmaX: 16,
-                          sigmaY: 16,
-                        ),
+                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                         child: ScrollConfiguration(
-                          behavior:
-                              ScrollConfiguration.of(context).copyWith(
+                          behavior: ScrollConfiguration.of(context).copyWith(
                             dragDevices: {
                               PointerDeviceKind.touch,
                               PointerDeviceKind.mouse,
@@ -306,9 +356,7 @@ extension _DashboardUi on _DashboardScreenState {
                                 child: Container(
                                   width: 42,
                                   height: 5,
-                                  margin: const EdgeInsets.only(
-                                    bottom: 14,
-                                  ),
+                                  margin: const EdgeInsets.only(bottom: 14),
                                   decoration: BoxDecoration(
                                     color: isDarkMode
                                         ? Colors.grey.shade600
@@ -324,14 +372,12 @@ extension _DashboardUi on _DashboardScreenState {
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(12),
-                                  margin: const EdgeInsets.only(
-                                    bottom: 14,
-                                  ),
+                                  margin: const EdgeInsets.only(bottom: 14),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.shade100
-                                        .withOpacity(0.9),
-                                    borderRadius:
-                                        BorderRadius.circular(16),
+                                    color: Colors.amber.shade100.withOpacity(
+                                      0.9,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: Colors.amber.shade600,
                                       width: 1,
@@ -351,10 +397,8 @@ extension _DashboardUi on _DashboardScreenState {
                                         child: Text(
                                           'Pastikan HP tersambung ke WiFi "CitriSoil_ESP32" untuk membaca data tanah.',
                                           style: TextStyle(
-                                            color:
-                                                Colors.amber.shade900,
-                                            fontWeight:
-                                                FontWeight.bold,
+                                            color: Colors.amber.shade900,
+                                            fontWeight: FontWeight.bold,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -367,25 +411,20 @@ extension _DashboardUi on _DashboardScreenState {
                               // BAR TARGET TANAH
                               Container(
                                 height: 60,
-                                margin: const EdgeInsets.only(
-                                  bottom: 14,
-                                ),
+                                margin: const EdgeInsets.only(bottom: 14),
                                 decoration: BoxDecoration(
                                   color: panelColor,
-                                  borderRadius:
-                                      BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          Colors.black.withOpacity(0.04),
+                                      color: Colors.black.withOpacity(0.04),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
                                 child: ClipRRect(
-                                  borderRadius:
-                                      BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(20),
                                   child: Stack(
                                     children: [
                                       if (hasImage) ...[
@@ -395,10 +434,8 @@ extension _DashboardUi on _DashboardScreenState {
                                               currentPlot.imageData!,
                                             ),
                                             fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (_, __, ___) =>
-                                                    const SizedBox
-                                                        .shrink(),
+                                            errorBuilder: (_, __, ___) =>
+                                                const SizedBox.shrink(),
                                           ),
                                         ),
                                         Positioned.fill(
@@ -406,29 +443,27 @@ extension _DashboardUi on _DashboardScreenState {
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
                                                 colors: [
-                                                  Colors.black
-                                                      .withOpacity(0.70),
-                                                  Colors.black
-                                                      .withOpacity(0.35),
+                                                  Colors.black.withOpacity(
+                                                    0.70,
+                                                  ),
+                                                  Colors.black.withOpacity(
+                                                    0.35,
+                                                  ),
                                                 ],
-                                                begin: Alignment
-                                                    .centerLeft,
-                                                end: Alignment
-                                                    .centerRight,
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
                                               ),
                                             ),
                                           ),
                                         ),
                                       ],
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
                                         ),
                                         child: Row(
                                           mainAxisAlignment:
-                                              MainAxisAlignment
-                                                  .spaceBetween,
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Row(
                                               children: [
@@ -436,17 +471,14 @@ extension _DashboardUi on _DashboardScreenState {
                                                   Icons.eco_rounded,
                                                   color: hasImage
                                                       ? Colors.white
-                                                      : const Color(
-                                                          0xFF4A72EC,
-                                                        ),
+                                                      : const Color(0xFF4A72EC),
                                                   size: 22,
                                                 ),
                                                 const SizedBox(width: 10),
                                                 Text(
                                                   'Target: ${currentPlot.name}',
                                                   style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
+                                                    fontWeight: FontWeight.bold,
                                                     fontSize: 14,
                                                     color: hasImage
                                                         ? Colors.white
@@ -456,17 +488,13 @@ extension _DashboardUi on _DashboardScreenState {
                                               ],
                                             ),
                                             TextButton.icon(
-                                              onPressed:
-                                                  _showPlotManagerSheet,
+                                              onPressed: _showPlotManagerSheet,
                                               icon: Icon(
-                                                Icons
-                                                    .add_location_alt_rounded,
+                                                Icons.add_location_alt_rounded,
                                                 size: 16,
                                                 color: hasImage
                                                     ? Colors.white
-                                                    : const Color(
-                                                        0xFF4A72EC,
-                                                      ),
+                                                    : const Color(0xFF4A72EC),
                                               ),
                                               label: Text(
                                                 hasPlants
@@ -474,17 +502,13 @@ extension _DashboardUi on _DashboardScreenState {
                                                     : 'Tambah Tanaman',
                                                 style: TextStyle(
                                                   fontSize: 12,
-                                                  fontWeight:
-                                                      FontWeight.bold,
+                                                  fontWeight: FontWeight.bold,
                                                   color: hasImage
                                                       ? Colors.white
-                                                      : const Color(
-                                                          0xFF4A72EC,
-                                                        ),
+                                                      : const Color(0xFF4A72EC),
                                                 ),
                                               ),
-                                              style:
-                                                  TextButton.styleFrom(
+                                              style: TextButton.styleFrom(
                                                 padding: EdgeInsets.zero,
                                                 visualDensity:
                                                     VisualDensity.compact,
@@ -499,78 +523,46 @@ extension _DashboardUi on _DashboardScreenState {
                               ),
 
                               if (hasPlants) ...[
-                                // Twin Cards
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildMetricCard(
-                                        title: 'Kelembapan',
-                                        value: isConnectedToESP
-                                            ? '$moistureValue%'
-                                            : '--',
-                                        status: isConnectedToESP
-                                            ? (isMeasuring
-                                                ? 'Merekam data...'
-                                                : (moistureValue < 45
-                                                    ? 'Kering'
-                                                    : 'Optimal'))
-                                            : 'Menunggu data',
-                                        icon:
-                                            Icons.water_drop_rounded,
-                                        accentColor:
-                                            const Color(0xFF38BDF8),
-                                        onTap: () =>
-                                            _showMetricDetailModal(true),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _buildMetricCard(
-                                        title: 'Suhu Tanah',
-                                        value: isConnectedToESP
-                                            ? '${tempValue.toStringAsFixed(1)}°C'
-                                            : '--',
-                                        status: isConnectedToESP
-                                            ? (isMeasuring
-                                                ? 'Merekam data...'
-                                                : 'Suhu Terdeteksi')
-                                            : 'Menunggu data',
-                                        icon:
-                                            Icons.thermostat_rounded,
-                                        accentColor:
-                                            const Color(0xFFF97316),
-                                        onTap: () =>
-                                            _showMetricDetailModal(false),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                               // Twin Cards
+Row(
+  children: [
+    Expanded(
+      child: _buildMoistureCard(
+        onTap: () =>
+            _showMetricDetailModal(true),
+      ),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: _buildTemperatureCard(
+        onTap: () =>
+            _showMetricDetailModal(false),
+      ),
+    ),
+  ],
+),
+const SizedBox(height: 16),
                                 const SizedBox(height: 16),
 
                                 // TOMBOL START / STOP PENGUKURAN
                                 ClipRRect(
-                                  borderRadius:
-                                      BorderRadius.circular(24),
+                                  borderRadius: BorderRadius.circular(24),
                                   child: Container(
                                     width: double.infinity,
                                     height: 50,
                                     decoration: BoxDecoration(
                                       color: isMeasuring
                                           ? const Color(0xFFF87171)
-                                              .withOpacity(0.35)
+                                                .withOpacity(0.35)
                                           : const Color(0xFF4A72EC),
-                                      borderRadius:
-                                          BorderRadius.circular(24),
+                                      borderRadius: BorderRadius.circular(24),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: (isMeasuring
-                                                  ? const Color(
-                                                      0xFFEF4444,
-                                                    )
-                                                  : const Color(
-                                                      0xFF4A72EC,
-                                                    ))
-                                              .withOpacity(0.35),
+                                          color:
+                                              (isMeasuring
+                                                      ? const Color(0xFFEF4444)
+                                                      : const Color(0xFF4A72EC))
+                                                  .withOpacity(0.35),
                                           blurRadius: 12,
                                           offset: const Offset(0, 4),
                                         ),
@@ -582,28 +574,23 @@ extension _DashboardUi on _DashboardScreenState {
                                           AnimatedBuilder(
                                             animation:
                                                 _measuringAnimationController,
-                                            builder:
-                                                (context, child) {
+                                            builder: (context, child) {
                                               return Align(
-                                                alignment: Alignment
-                                                    .centerLeft,
-                                                child:
-                                                    FractionallySizedBox(
+                                                alignment: Alignment.centerLeft,
+                                                child: FractionallySizedBox(
                                                   widthFactor:
                                                       _measuringAnimationController
                                                           .value,
                                                   heightFactor: 1.0,
                                                   child: Container(
-                                                    decoration:
-                                                        BoxDecoration(
+                                                    decoration: BoxDecoration(
                                                       color: const Color(
                                                         0xFFEF4444,
                                                       ),
                                                       borderRadius:
-                                                          BorderRadius
-                                                              .circular(
-                                                        24,
-                                                      ),
+                                                          BorderRadius.circular(
+                                                            24,
+                                                          ),
                                                     ),
                                                   ),
                                                 ),
@@ -625,27 +612,23 @@ extension _DashboardUi on _DashboardScreenState {
                                             child: Center(
                                               child: Row(
                                                 mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .center,
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   Icon(
                                                     isMeasuring
                                                         ? Icons
-                                                            .stop_circle_rounded
+                                                              .stop_circle_rounded
                                                         : Icons
-                                                            .play_arrow_rounded,
+                                                              .play_arrow_rounded,
                                                     color: Colors.white,
                                                     size: 26,
                                                   ),
-                                                  const SizedBox(
-                                                    width: 8,
-                                                  ),
+                                                  const SizedBox(width: 8),
                                                   Text(
                                                     isMeasuring
                                                         ? 'Berhenti (${remainingSeconds ~/ 60}:${(remainingSeconds % 60).toString().padLeft(2, '0')})'
                                                         : 'Mulai Pengukuran (${currentPlot.name})',
-                                                    style:
-                                                        const TextStyle(
+                                                    style: const TextStyle(
                                                       fontSize: 16,
                                                       fontWeight:
                                                           FontWeight.bold,
@@ -670,47 +653,39 @@ extension _DashboardUi on _DashboardScreenState {
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: panelColor,
-                                  borderRadius:
-                                      BorderRadius.circular(22),
+                                  borderRadius: BorderRadius.circular(22),
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          Colors.black.withOpacity(0.04),
+                                      color: Colors.black.withOpacity(0.04),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       mainAxisAlignment:
-                                          MainAxisAlignment
-                                              .spaceBetween,
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'Jalur Komunikasi Lokal',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            fontWeight:
-                                                FontWeight.bold,
+                                            fontWeight: FontWeight.bold,
                                             color: primaryTextColor,
                                           ),
                                         ),
                                         Container(
-                                          padding:
-                                              const EdgeInsets.symmetric(
+                                          padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
                                             vertical: 3,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: const Color(
-                                              0xFF4A72EC,
-                                            ).withOpacity(0.12),
-                                            borderRadius:
-                                                BorderRadius.circular(
+                                            color: const Color(0xFF4A72EC)
+                                                .withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(
                                               10,
                                             ),
                                           ),
@@ -718,10 +693,8 @@ extension _DashboardUi on _DashboardScreenState {
                                             'ESP32 SoftAP',
                                             style: TextStyle(
                                               fontSize: 10,
-                                              fontWeight:
-                                                  FontWeight.bold,
-                                              color:
-                                                  Color(0xFF4A72EC),
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF4A72EC),
                                             ),
                                           ),
                                         ),
@@ -734,9 +707,7 @@ extension _DashboardUi on _DashboardScreenState {
                                     ),
                                     Divider(
                                       height: 14,
-                                      color: isDarkMode
-                                          ? Colors.white12
-                                          : null,
+                                      color: isDarkMode ? Colors.white12 : null,
                                     ),
                                     _buildDetailRow(
                                       'IP Gateway',
@@ -744,9 +715,7 @@ extension _DashboardUi on _DashboardScreenState {
                                     ),
                                     Divider(
                                       height: 14,
-                                      color: isDarkMode
-                                          ? Colors.white12
-                                          : null,
+                                      color: isDarkMode ? Colors.white12 : null,
                                     ),
                                     _buildDetailRow(
                                       'Protokol Data',
@@ -762,19 +731,18 @@ extension _DashboardUi on _DashboardScreenState {
                                 children: [
                                   Expanded(
                                     child: Container(
-                                      padding:
-                                          const EdgeInsets.symmetric(
+                                      padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
                                         vertical: 12,
                                       ),
                                       decoration: BoxDecoration(
                                         color: panelColor,
-                                        borderRadius:
-                                            BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black
-                                                .withOpacity(0.03),
+                                            color: Colors.black.withOpacity(
+                                              0.03,
+                                            ),
                                             blurRadius: 6,
                                           ),
                                         ],
@@ -782,8 +750,7 @@ extension _DashboardUi on _DashboardScreenState {
                                       child: Row(
                                         children: [
                                           const Icon(
-                                            Icons
-                                                .battery_charging_full_rounded,
+                                            Icons.battery_charging_full_rounded,
                                             color: Color(0xFF10B981),
                                             size: 22,
                                           ),
@@ -796,8 +763,7 @@ extension _DashboardUi on _DashboardScreenState {
                                                 'Baterai Node',
                                                 style: TextStyle(
                                                   fontSize: 10.5,
-                                                  color:
-                                                      secondaryTextColor,
+                                                  color: secondaryTextColor,
                                                 ),
                                               ),
                                               Text(
@@ -806,10 +772,8 @@ extension _DashboardUi on _DashboardScreenState {
                                                     : '-- V',
                                                 style: TextStyle(
                                                   fontSize: 12.5,
-                                                  fontWeight:
-                                                      FontWeight.bold,
-                                                  color:
-                                                      primaryTextColor,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: primaryTextColor,
                                                 ),
                                               ),
                                             ],
@@ -821,19 +785,18 @@ extension _DashboardUi on _DashboardScreenState {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Container(
-                                      padding:
-                                          const EdgeInsets.symmetric(
+                                      padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
                                         vertical: 12,
                                       ),
                                       decoration: BoxDecoration(
                                         color: panelColor,
-                                        borderRadius:
-                                            BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black
-                                                .withOpacity(0.03),
+                                            color: Colors.black.withOpacity(
+                                              0.03,
+                                            ),
                                             blurRadius: 6,
                                           ),
                                         ],
@@ -843,8 +806,7 @@ extension _DashboardUi on _DashboardScreenState {
                                           Icon(
                                             isConnectedToESP
                                                 ? Icons.router_rounded
-                                                : Icons
-                                                    .signal_wifi_bad_rounded,
+                                                : Icons.signal_wifi_bad_rounded,
                                             color: isConnectedToESP
                                                 ? const Color(0xFF4A72EC)
                                                 : Colors.grey,
@@ -859,8 +821,7 @@ extension _DashboardUi on _DashboardScreenState {
                                                 'Status Link',
                                                 style: TextStyle(
                                                   fontSize: 10.5,
-                                                  color:
-                                                      secondaryTextColor,
+                                                  color: secondaryTextColor,
                                                 ),
                                               ),
                                               Text(
@@ -869,10 +830,8 @@ extension _DashboardUi on _DashboardScreenState {
                                                     : 'Offline',
                                                 style: TextStyle(
                                                   fontSize: 12.5,
-                                                  fontWeight:
-                                                      FontWeight.bold,
-                                                  color:
-                                                      primaryTextColor,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: primaryTextColor,
                                                 ),
                                               ),
                                             ],
@@ -891,13 +850,12 @@ extension _DashboardUi on _DashboardScreenState {
                                   'assets/logo_kementan.webp',
                                   height: 50,
                                   fit: BoxFit.contain,
-                                  errorBuilder:
-                                      (context, error, stackTrace) =>
-                                          const Icon(
-                                    Icons.agriculture_rounded,
-                                    color: Colors.green,
-                                    size: 40,
-                                  ),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                        Icons.agriculture_rounded,
+                                        color: Colors.green,
+                                        size: 40,
+                                      ),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -917,6 +875,8 @@ extension _DashboardUi on _DashboardScreenState {
   }
 
   Widget _buildMetricCard({
+    
+
     required String title,
     required String value,
     required String status,
@@ -947,8 +907,7 @@ extension _DashboardUi on _DashboardScreenState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       title,
@@ -964,18 +923,13 @@ extension _DashboardUi on _DashboardScreenState {
                         color: accentColor.withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        icon,
-                        size: 16,
-                        color: accentColor,
-                      ),
+                      child: Icon(icon, size: 16, color: accentColor),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       value,
@@ -1011,17 +965,283 @@ extension _DashboardUi on _DashboardScreenState {
     );
   }
 
+
+
+  Widget _buildMoistureCard({required VoidCallback onTap}) {
+    final color = _getMoistureColor();
+    final status = _getMoistureStatus();
+
+    final double progress = isConnectedToESP
+    ? ((moistureValue / 100).clamp(0.0, 1.0)).toDouble()
+    : 0.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Kelembapan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.water_drop_rounded,
+                        size: 16,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      isConnectedToESP ? '$moistureValue' : '--',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        color: primaryTextColor,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        '%',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: secondaryTextColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 8,
+                    backgroundColor: isDarkMode
+                        ? Colors.white12
+                        : Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: isDarkMode
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade400,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+Widget _buildTemperatureCard({
+  required VoidCallback onTap,
+}) {
+  final color = _getTemperatureColor();
+  final status = _getTemperatureStatus();
+
+  final double progress = isConnectedToESP
+      ? ((tempValue / 50).clamp(0.0, 1.0)).toDouble()
+      : 0.0;
+
+  return Container(
+    decoration: BoxDecoration(
+      color: panelColor,
+      borderRadius: BorderRadius.circular(22),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Suhu Tanah',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.thermostat_rounded,
+                      size: 16,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              Row(
+                crossAxisAlignment:
+                    CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    isConnectedToESP
+                        ? tempValue.toStringAsFixed(1)
+                        : '--',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: primaryTextColor,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      '°C',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: isDarkMode
+                      ? Colors.white12
+                      : Colors.grey.shade200,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(
+                    color,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    status,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: isDarkMode
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+  
   Widget _buildDetailRow(String label, String val) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: secondaryTextColor,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: secondaryTextColor)),
         Text(
           val,
           style: TextStyle(
