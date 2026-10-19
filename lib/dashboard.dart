@@ -45,9 +45,16 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool isConnectedToESP = false;
   bool isFetching = false;
 
-  int moistureValue = 0;
-  double tempValue = 0.0;
-  double batteryVolt = 0.0;
+int moistureValue = 0;
+double tempValue = 0.0;
+double batteryVolt = 0.0;
+
+int get batteryPercent {
+  final percent =
+      ((batteryVolt - 3.30) / (4.80 - 3.30) * 100).round();
+
+  return percent.clamp(0, 100);
+}
 
   List<SoilPlot> plots = [];
   int selectedPlotIndex = 0;

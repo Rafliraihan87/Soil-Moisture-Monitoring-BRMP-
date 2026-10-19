@@ -756,8 +756,7 @@ const SizedBox(height: 16),
                                           ),
                                           const SizedBox(width: 8),
                                           Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 'Baterai Node',
@@ -768,12 +767,22 @@ const SizedBox(height: 16),
                                               ),
                                               Text(
                                                 isConnectedToESP
+                                                    ? '$batteryPercent%'
+                                                    : '--%',
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: primaryTextColor,
+                                                ),
+                                              ),
+                                              Text(
+                                                isConnectedToESP
                                                     ? '${batteryVolt.toStringAsFixed(2)} V'
                                                     : '-- V',
                                                 style: TextStyle(
-                                                  fontSize: 12.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: primaryTextColor,
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: secondaryTextColor,
                                                 ),
                                               ),
                                             ],
