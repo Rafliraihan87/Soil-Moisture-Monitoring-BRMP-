@@ -22,6 +22,18 @@ extension _DashboardDialogs on _DashboardScreenState {
                 ? const Color(0xFF94A3B8)
                 : const Color(0xFF64748B);
 
+            // Foto profil disimpan sebagai Base64 di Firestore.
+            // Jika data foto kosong atau formatnya tidak valid, gunakan ikon default.
+            ImageProvider? profileImage;
+            final imageData = profileImageData;
+            if (imageData != null && imageData.trim().isNotEmpty) {
+              try {
+                profileImage = MemoryImage(base64Decode(imageData));
+              } catch (_) {
+                profileImage = null;
+              }
+            }
+
             return BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
@@ -69,6 +81,7 @@ extension _DashboardDialogs on _DashboardScreenState {
                           backgroundColor: darkMode
                               ? const Color(0xFF1E3A8A)
                               : const Color(0xFFE0E7FF),
+                          backgroundImage: isLoadingProfile ? null : profileImage,
                           child: isLoadingProfile
                               ? const SizedBox(
                                   width: 18,
@@ -77,10 +90,12 @@ extension _DashboardDialogs on _DashboardScreenState {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(
-                                  Icons.person_rounded,
-                                  color: Color(0xFF4A72EC),
-                                ),
+                              : profileImage == null
+                                  ? const Icon(
+                                      Icons.person_rounded,
+                                      color: Color(0xFF4A72EC),
+                                    )
+                                  : null,
                         ),
                         title: Text(
                           profileName,

@@ -191,6 +191,10 @@ extension _DashboardDataController on _DashboardScreenState {
             .get();
   
         final data = doc.data();
+        final rawImage = data?['imageData'];
+        final firestoreImage = rawImage is String && rawImage.trim().isNotEmpty
+            ? rawImage.trim()
+            : null;
         final firestoreName = (data?['name'] as String?)?.trim() ?? '';
         final authName = user.displayName?.trim() ?? '';
   
@@ -206,6 +210,7 @@ extension _DashboardDataController on _DashboardScreenState {
         setState(() {
           profileName = resolvedName;
           profileEmail = user.email ?? '';
+          profileImageData = firestoreImage;
           isLoadingProfile = false;
         });
       } catch (_) {

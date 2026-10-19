@@ -79,6 +79,7 @@ void _setDarkMode(bool value) {
 
   String profileName = 'Pengguna';
   String profileEmail = '';
+  String? profileImageData;
   bool isLoadingProfile = true;
 
   Color get primaryTextColor =>
